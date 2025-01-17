@@ -9,18 +9,25 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt;
 
+use common::PerfLogEvent;
 use graphql_ir::*;
-use intern::string_key::StringKey;
-use intern::string_key::StringKeyMap;
-use intern::string_key::StringKeySet;
-use relay_transforms::get_resolver_fragment_name;
+use relay_transforms::get_resolver_fragment_dependency_name;
+use rustc_hash::FxHashMap;
+use rustc_hash::FxHashSet;
 use schema::SDLSchema;
 use schema::Schema;
+use schema_diff::check;
+
+use crate::schema_change_analyzer;
+
+pub type ExecutableDefinitionNameSet = FxHashSet<ExecutableDefinitionName>;
+pub type ExecutableDefinitionNameMap<V> = FxHashMap<ExecutableDefinitionName, V>;
+pub type ExecutableDefinitionNameVec = Vec<ExecutableDefinitionName>;
 
 struct Node {
     ir: Option<ExecutableDefinition>,
-    parents: Vec<StringKey>,
-    children: Vec<StringKey>,
+    parents: ExecutableDefinitionNameVec,
+    children: ExecutableDefinitionNameVec,
 }
 
 impl fmt::Debug for Node {
@@ -37,60 +44,70 @@ impl fmt::Debug for Node {
 /// building a dependency graph where edges are either explicit fragment spreads,
 /// or "implicit dependencies" such as those created by Relay Resolvers.
 ///
-/// New implicit dependencies are detected by walking the chaged documents,
+/// New implicit dependencies are detected by walking the changed documents,
 /// whereas preexisting implicit dependencies must be passed in as
 /// `implicit_dependencies`.
 pub fn get_reachable_ir(
     definitions: Vec<ExecutableDefinition>,
-    base_definition_names: StringKeySet,
-    changed_names: StringKeySet,
+    base_definition_names: ExecutableDefinitionNameSet,
+    changed_names: ExecutableDefinitionNameSet,
     schema: &SDLSchema,
+    schema_changes: FxHashSet<check::IncrementalBuildSchemaChange>,
+    log_event: &impl PerfLogEvent,
 ) -> Vec<ExecutableDefinition> {
-    if changed_names.is_empty() {
-        return vec![];
-    }
+    let timer = log_event.start("get_reachable_ir_time");
+    let result = if changed_names.is_empty() && schema_changes.is_empty() {
+        vec![]
+    } else {
+        let mut all_changed_names: ExecutableDefinitionNameSet =
+            schema_change_analyzer::get_affected_definitions(schema, &definitions, schema_changes);
+        all_changed_names.extend(changed_names);
 
-    // For each executable definition, define a `Node` indicating its parents and children
-    // Note: There are situations where a name in `changed_names` may not appear
-    // in `definitions`, and thus would be missing from `dependency_graph`. This can arise
-    // if you change a file which contains a fragment which is present in the
-    // base project, but is not reachable from any of the project's own
-    // queries/mutations.
-    let dependency_graph = build_dependency_graph(schema, definitions);
+        // For each executable definition, define a `Node` indicating its parents and children
+        // Note: There are situations where a name in `changed_names` may not appear
+        // in `definitions`, and thus would be missing from `dependency_graph`. This can arise
+        // if you change a file which contains a fragment which is present in the
+        // base project, but is not reachable from any of the project's own
+        // queries/mutations.
+        let dependency_graph = build_dependency_graph(schema, definitions);
 
-    let mut visited = Default::default();
-    let mut filtered_definitions = Default::default();
+        let mut visited = Default::default();
+        let mut filtered_definitions = Default::default();
 
-    for key in changed_names.into_iter() {
-        if dependency_graph.contains_key(&key) {
-            add_related_nodes(
-                &mut visited,
-                &mut filtered_definitions,
-                &dependency_graph,
-                &base_definition_names,
-                key,
-            );
+        for key in all_changed_names.into_iter() {
+            if dependency_graph.contains_key(&key) {
+                add_related_nodes(
+                    &mut visited,
+                    &mut filtered_definitions,
+                    &dependency_graph,
+                    &base_definition_names,
+                    key,
+                );
+            }
         }
-    }
 
-    filtered_definitions
-        .drain()
-        .map(|(_, definition)| definition)
-        .collect()
+        filtered_definitions
+            .drain()
+            .map(|(_, definition)| definition)
+            .collect()
+    };
+
+    log_event.stop(timer);
+    result
 }
 
 // Build a dependency graph of that nodes are "doubly linked"
 fn build_dependency_graph(
     schema: &SDLSchema,
     definitions: Vec<ExecutableDefinition>,
-) -> StringKeyMap<Node> {
-    let mut dependency_graph: StringKeyMap<Node> =
+) -> ExecutableDefinitionNameMap<Node> {
+    let mut dependency_graph =
         HashMap::with_capacity_and_hasher(definitions.len(), Default::default());
 
     for definition in definitions.into_iter() {
         let name = match &definition {
-            ExecutableDefinition::Operation(operation) => operation.name.item.0,
-            ExecutableDefinition::Fragment(fragment) => fragment.name.item.0,
+            ExecutableDefinition::Operation(operation) => operation.name.item.into(),
+            ExecutableDefinition::Fragment(fragment) => fragment.name.item.into(),
         };
 
         // Visit the selections of the IR to build it's `children`
@@ -135,11 +152,11 @@ fn build_dependency_graph(
     dependency_graph
 }
 
-fn update_dependecy_graph(
-    current_node: StringKey,
-    parent_name: StringKey,
-    dependency_graph: &mut StringKeyMap<Node>,
-    children: &mut Vec<StringKey>,
+fn update_dependency_graph(
+    current_node: ExecutableDefinitionName,
+    parent_name: ExecutableDefinitionName,
+    dependency_graph: &mut ExecutableDefinitionNameMap<Node>,
+    children: &mut ExecutableDefinitionNameVec,
 ) {
     match dependency_graph.get_mut(&current_node) {
         None => {
@@ -163,16 +180,16 @@ fn update_dependecy_graph(
 // and the `parents` for nodes representing the children IR
 fn visit_selections(
     schema: &SDLSchema,
-    dependency_graph: &mut StringKeyMap<Node>,
+    dependency_graph: &mut ExecutableDefinitionNameMap<Node>,
     selections: &[Selection],
-    parent_name: StringKey,
-    children: &mut Vec<StringKey>,
+    parent_name: ExecutableDefinitionName,
+    children: &mut ExecutableDefinitionNameVec,
 ) {
     for selection in selections {
         match selection {
             Selection::FragmentSpread(node) => {
-                let current_node = node.fragment.item.0;
-                update_dependecy_graph(current_node, parent_name, dependency_graph, children);
+                let current_node = node.fragment.item.into();
+                update_dependency_graph(current_node, parent_name, dependency_graph, children);
             }
             Selection::InlineFragment(node) => {
                 visit_selections(
@@ -184,11 +201,11 @@ fn visit_selections(
                 );
             }
             Selection::LinkedField(linked_field) => {
-                if let Some(fragment_name) =
-                    get_resolver_fragment_name(schema.field(linked_field.definition.item))
-                {
-                    update_dependecy_graph(
-                        fragment_name.0,
+                if let Some(fragment_name) = get_resolver_fragment_dependency_name(
+                    schema.field(linked_field.definition.item),
+                ) {
+                    update_dependency_graph(
+                        fragment_name.into(),
                         parent_name,
                         dependency_graph,
                         children,
@@ -203,11 +220,11 @@ fn visit_selections(
                 );
             }
             Selection::ScalarField(scalar_field) => {
-                if let Some(fragment_name) =
-                    get_resolver_fragment_name(schema.field(scalar_field.definition.item))
-                {
-                    update_dependecy_graph(
-                        fragment_name.0,
+                if let Some(fragment_name) = get_resolver_fragment_dependency_name(
+                    schema.field(scalar_field.definition.item),
+                ) {
+                    update_dependency_graph(
+                        fragment_name.into(),
                         parent_name,
                         dependency_graph,
                         children,
@@ -227,14 +244,14 @@ fn visit_selections(
     }
 }
 
-// From `key` of changed definition, recusively traverse up the depenency tree, and add all related nodes (ancestors
-// of changned definitions which are not from base definitions, and all of their desendants) into the `result`
+// From `key` of changed definition, recursively traverse up the dependency tree, and add all related nodes (ancestors
+// of changed definitions which are not from base definitions, and all of their descendants) into the `result`
 fn add_related_nodes(
-    visited: &mut StringKeySet,
-    result: &mut StringKeyMap<ExecutableDefinition>,
-    dependency_graph: &StringKeyMap<Node>,
-    base_definition_names: &StringKeySet,
-    key: StringKey,
+    visited: &mut ExecutableDefinitionNameSet,
+    result: &mut ExecutableDefinitionNameMap<ExecutableDefinition>,
+    dependency_graph: &ExecutableDefinitionNameMap<Node>,
+    base_definition_names: &ExecutableDefinitionNameSet,
+    key: ExecutableDefinitionName,
 ) {
     if !visited.insert(key) {
         return;
@@ -265,9 +282,9 @@ fn add_related_nodes(
 
 // Recursively add all descendants of current node into the `result`
 fn add_descendants(
-    result: &mut StringKeyMap<ExecutableDefinition>,
-    dependency_graph: &StringKeyMap<Node>,
-    key: StringKey,
+    result: &mut ExecutableDefinitionNameMap<ExecutableDefinition>,
+    dependency_graph: &ExecutableDefinitionNameMap<Node>,
+    key: ExecutableDefinitionName,
 ) {
     if result.contains_key(&key) {
         return;
@@ -287,4 +304,56 @@ fn add_descendants(
             panic!("Fragment {:?} not found in IR.", key);
         }
     }
+}
+
+/// Get fragment references of each definition
+pub fn get_ir_definition_references<'a>(
+    schema: &SDLSchema,
+    definitions: impl IntoIterator<Item = &'a ExecutableDefinition>,
+) -> ExecutableDefinitionNameMap<ExecutableDefinitionNameSet> {
+    let mut result: ExecutableDefinitionNameMap<ExecutableDefinitionNameSet> = Default::default();
+    for definition in definitions {
+        let name = definition.name_with_location().item;
+        let name = match definition {
+            ExecutableDefinition::Operation(_) => OperationDefinitionName(name).into(),
+            ExecutableDefinition::Fragment(_) => FragmentDefinitionName(name).into(),
+        };
+        let mut selections: Vec<_> = match definition {
+            ExecutableDefinition::Operation(definition) => &definition.selections,
+            ExecutableDefinition::Fragment(definition) => &definition.selections,
+        }
+        .iter()
+        .collect();
+        let mut references: ExecutableDefinitionNameSet = Default::default();
+        while let Some(selection) = selections.pop() {
+            match selection {
+                Selection::FragmentSpread(selection) => {
+                    references.insert(selection.fragment.item.into());
+                }
+                Selection::LinkedField(selection) => {
+                    if let Some(fragment_name) = get_resolver_fragment_dependency_name(
+                        schema.field(selection.definition.item),
+                    ) {
+                        references.insert(fragment_name.into());
+                    }
+                    selections.extend(&selection.selections);
+                }
+                Selection::InlineFragment(selection) => {
+                    selections.extend(&selection.selections);
+                }
+                Selection::Condition(selection) => {
+                    selections.extend(&selection.selections);
+                }
+                Selection::ScalarField(selection) => {
+                    if let Some(fragment_name) = get_resolver_fragment_dependency_name(
+                        schema.field(selection.definition.item),
+                    ) {
+                        references.insert(fragment_name.into());
+                    }
+                }
+            }
+        }
+        result.insert(name, references);
+    }
+    result
 }

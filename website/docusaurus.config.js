@@ -192,6 +192,12 @@ module.exports = {
         infoLink: 'https://www.atlassian.com/',
         pinned: false,
       },
+      {
+        caption: 'Réa',
+        image: '/img/logos/rea.png',
+        infoLink: 'https://www.rea-app.fr/',
+        pinned: false,
+      },
     ],
   },
   onBrokenLinks: 'throw',
@@ -202,14 +208,8 @@ module.exports = {
       require.resolve('docusaurus-plugin-internaldocs-fb/docusaurus-preset'),
       {
         docs: {
-          showLastUpdateAuthor: fbContent({
-            internal: false,
-            external: true,
-          }),
-          showLastUpdateTime: fbContent({
-            internal: false,
-            external: true,
-          }),
+          showLastUpdateAuthor: false,
+          showLastUpdateTime: false,
           editUrl: fbContent({
             internal:
               'https://www.internalfb.com/intern/diffusion/FBS/browse/master/xplat/js/RKJSModules/Libraries/Relay/oss/__github__/website/',
@@ -248,10 +248,10 @@ module.exports = {
           ],
         },
         gtag: {
-          trackingID: 'UA-44373548-50',
+          trackingID: 'G-DCSC7FDGL5',
         },
         googleAnalytics: {
-          trackingID: 'UA-44373548-50',
+          trackingID: 'G-DCSC7FDGL5',
         },
       },
     ],
@@ -453,13 +453,40 @@ module.exports = {
       copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc. Built with Docusaurus.`,
     },
     prism: {
-      theme: require('prism-react-renderer/themes/github'),
+      theme: require('./prismTheme'),
       darkTheme: require('prism-react-renderer/themes/dracula'),
       defaultLanguage: 'javascript',
+      magicComments: [
+        {
+          className: 'code-change',
+          line: 'change-line',
+          block: {start: 'change', end: 'end-change'},
+        },
+        {
+          className: 'color1',
+          line: 'color1',
+        },
+        {
+          className: 'color2',
+          line: 'color2',
+        },
+        {
+          className: 'color3',
+          line: 'color3',
+        },
+        {
+          className: 'color4',
+          line: 'color4',
+        },
+        {
+          className: 'color5',
+          line: 'color5',
+        },
+      ],
     },
     algolia: {
-      appId: 'BH4D9OD16A',
-      apiKey: '3d7d5825d50ea36bca0e6ad06c926f06',
+      appId: 'UBPJPW35NS',
+      apiKey: '26e12c1c268d99b20a16f365f8593df9',
       indexName: 'relay',
       contextualSearch: true,
     },

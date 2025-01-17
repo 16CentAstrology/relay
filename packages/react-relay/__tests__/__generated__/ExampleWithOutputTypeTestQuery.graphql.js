@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<918f907dc1b5afb2cdd180e69f75c012>>
+ * @generated SignedSource<<c2e45eddddcf29cda64a1ad63a7e7643>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,10 +18,14 @@
 
 /*::
 import type { ClientRequest, ClientQuery } from 'relay-runtime';
-import {example_client_object as queryExampleClientObjectResolver} from "../../../relay-runtime/store/__tests__/resolvers/ExampleClientObjectResolver.js";
-// Type assertion validating that `queryExampleClientObjectResolver` resolver is correctly implemented.
+import {example_client_object as queryExampleClientObjectResolverType} from "../../../relay-runtime/store/__tests__/resolvers/ExampleClientObjectResolver.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryExampleClientObjectResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryExampleClientObjectResolver: () => ?Query__example_client_object$normalization);
+(queryExampleClientObjectResolverType: (
+  args: void,
+  context: TestResolverContextType,
+) => ?Query__example_client_object$normalization);
 import type { Query__example_client_object$normalization } from "./../../../relay-runtime/store/__tests__/resolvers/__generated__/Query__example_client_object$normalization.graphql";
 export type ExampleWithOutputTypeTestQuery$variables = {||};
 export type ExampleWithOutputTypeTestQuery$data = {|
@@ -35,7 +39,26 @@ export type ExampleWithOutputTypeTestQuery = {|
 |};
 */
 
-var node/*: ClientRequest*/ = {
+var node/*: ClientRequest*/ = (function(){
+var v0 = {
+  "alias": null,
+  "args": null,
+  "concreteType": "ClientObject",
+  "kind": "LinkedField",
+  "name": "example_client_object",
+  "plural": false,
+  "selections": [
+    {
+      "alias": null,
+      "args": null,
+      "kind": "ScalarField",
+      "name": "description",
+      "storageKey": null
+    }
+  ],
+  "storageKey": null
+};
+return {
   "fragment": {
     "argumentDefinitions": [],
     "kind": "Fragment",
@@ -47,6 +70,7 @@ var node/*: ClientRequest*/ = {
       {
         "kind": "ClientEdgeToClientObject",
         "concreteType": "ClientObject",
+        "modelResolvers": null,
         "backingField": {
           "alias": null,
           "args": null,
@@ -56,29 +80,13 @@ var node/*: ClientRequest*/ = {
           "resolverModule": require('./../../../relay-runtime/store/__tests__/resolvers/ExampleClientObjectResolver').example_client_object,
           "path": "example_client_object",
           "normalizationInfo": {
+            "kind": "OutputType",
             "concreteType": "ClientObject",
             "plural": false,
             "normalizationNode": require('./../../../relay-runtime/store/__tests__/resolvers/__generated__/Query__example_client_object$normalization.graphql')
           }
         },
-        "linkedField": {
-          "alias": null,
-          "args": null,
-          "concreteType": "ClientObject",
-          "kind": "LinkedField",
-          "name": "example_client_object",
-          "plural": false,
-          "selections": [
-            {
-              "alias": null,
-              "args": null,
-              "kind": "ScalarField",
-              "name": "description",
-              "storageKey": null
-            }
-          ],
-          "storageKey": null
-        }
+        "linkedField": (v0/*: any*/)
       }
     ],
     "type": "Query",
@@ -91,16 +99,16 @@ var node/*: ClientRequest*/ = {
     "name": "ExampleWithOutputTypeTestQuery",
     "selections": [
       {
-        "kind": "ClientExtension",
-        "selections": [
-          {
-            "name": "example_client_object",
-            "args": null,
-            "fragment": null,
-            "kind": "RelayResolver",
-            "storageKey": null
-          }
-        ]
+        "kind": "ClientEdgeToClientObject",
+        "backingField": {
+          "name": "example_client_object",
+          "args": null,
+          "fragment": null,
+          "kind": "RelayResolver",
+          "storageKey": null,
+          "isOutputType": true
+        },
+        "linkedField": (v0/*: any*/)
       }
     ]
   },
@@ -113,6 +121,7 @@ var node/*: ClientRequest*/ = {
     "text": null
   }
 };
+})();
 
 if (__DEV__) {
   (node/*: any*/).hash = "6af44b9f4263bf177df8d084dc79d494";

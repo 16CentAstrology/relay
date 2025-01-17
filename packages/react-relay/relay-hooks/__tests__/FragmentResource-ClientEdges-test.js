@@ -13,8 +13,8 @@
 
 const {
   getFragmentResourceForEnvironment,
-} = require('react-relay/relay-hooks/FragmentResource');
-const {RelayFeatureFlags, getFragment} = require('relay-runtime');
+} = require('react-relay/relay-hooks/legacy/FragmentResource');
+const {getFragment} = require('relay-runtime');
 const {graphql} = require('relay-runtime/query/GraphQLTag');
 const {
   createOperationDescriptor,
@@ -27,16 +27,6 @@ const {
 
 disallowWarnings();
 disallowConsoleErrors();
-
-beforeEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = true;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = true;
-});
-
-afterEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = false;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = false;
-});
 
 const BASIC_QUERY = graphql`
   query FragmentResourceClientEdgesTest1Query($id: ID!) {
@@ -84,7 +74,7 @@ describe('FragmentResource Client Edges behavior', () => {
       __fragmentOwner: query.request,
     };
 
-    release = jest.fn();
+    release = jest.fn<$ReadOnlyArray<mixed>, mixed>();
     // eslint-disable-next-line ft-flow/no-flow-fix-me-comments
     // $FlowFixMe[method-unbinding]
     environment.retain.mockImplementation((...args) => {
@@ -142,11 +132,8 @@ describe('FragmentResource Client Edges behavior', () => {
         'componentDisplayName',
       );
     }).not.toThrow();
-    // $FlowFixMe[incompatible-use]
     expect(result?.data?.client_edge.name).toBe('Bob');
-    // $FlowFixMe[prop-missing]
     expect(result?.snapshot?.isMissingData).toBe(false);
-    // $FlowFixMe[prop-missing]
     expect(result?.snapshot?.missingClientEdges?.size ?? 0).toBe(0);
   });
 

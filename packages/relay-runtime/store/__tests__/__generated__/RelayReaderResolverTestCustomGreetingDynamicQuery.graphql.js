@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<7a8fc26b3a063c3b73ba4b0ac85acb14>>
+ * @generated SignedSource<<0d2e5e18104d446088f8d64b7418c8a7>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,23 +19,25 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserCustomGreetingResolver$key } from "./../resolvers/__generated__/UserCustomGreetingResolver.graphql";
-import {custom_greeting as userCustomGreetingResolver} from "../resolvers/UserCustomGreetingResolver.js";
-// Type assertion validating that `userCustomGreetingResolver` resolver is correctly implemented.
+import {custom_greeting as userCustomGreetingResolverType} from "../resolvers/UserCustomGreetingResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userCustomGreetingResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userCustomGreetingResolver: (
-  rootKey: UserCustomGreetingResolver$key, 
+(userCustomGreetingResolverType: (
+  rootKey: UserCustomGreetingResolver$key,
   args: {|
     salutation: string,
-  |}, 
-) => mixed);
+  |},
+  context: TestResolverContextType,
+) => ?string);
 export type RelayReaderResolverTestCustomGreetingDynamicQuery$variables = {|
   salutation: string,
 |};
 export type RelayReaderResolverTestCustomGreetingDynamicQuery$data = {|
   +me: ?{|
-    +dynamic_greeting: ?$Call<<R>((...empty[]) => R) => R, typeof userCustomGreetingResolver>,
-    +greetz: ?$Call<<R>((...empty[]) => R) => R, typeof userCustomGreetingResolver>,
-    +willkommen: ?$Call<<R>((...empty[]) => R) => R, typeof userCustomGreetingResolver>,
+    +dynamic_greeting: ?string,
+    +greetz: ?string,
+    +willkommen: ?string,
   |},
 |};
 export type RelayReaderResolverTestCustomGreetingDynamicQuery = {|
@@ -160,21 +162,24 @@ return {
             "args": (v1/*: any*/),
             "fragment": (v5/*: any*/),
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           {
             "name": "custom_greeting",
             "args": (v3/*: any*/),
             "fragment": (v5/*: any*/),
             "kind": "RelayResolver",
-            "storageKey": "custom_greeting(salutation:\"Greetz\")"
+            "storageKey": "custom_greeting(salutation:\"Greetz\")",
+            "isOutputType": true
           },
           {
             "name": "custom_greeting",
             "args": (v4/*: any*/),
             "fragment": (v5/*: any*/),
             "kind": "RelayResolver",
-            "storageKey": "custom_greeting(salutation:\"Willkommen\")"
+            "storageKey": "custom_greeting(salutation:\"Willkommen\")",
+            "isOutputType": true
           },
           {
             "alias": null,

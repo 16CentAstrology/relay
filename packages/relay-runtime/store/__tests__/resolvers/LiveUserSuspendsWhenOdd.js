@@ -12,28 +12,23 @@
 'use strict';
 
 import type {DataID} from 'relay-runtime';
-import type {LiveState} from 'relay-runtime/store/experimental-live-resolvers/LiveResolverStore';
+import type {LiveState} from 'relay-runtime';
 
 const {GLOBAL_STORE, Selectors} = require('./ExampleExternalStateStore');
-const {
-  suspenseSentinel,
-} = require('relay-runtime/store/experimental-live-resolvers/LiveResolverSuspenseSentinel');
+const {suspenseSentinel} = require('relay-runtime');
 
 /**
- * @RelayResolver
- * @fieldName live_user_suspends_when_odd
- * @edgeTo User
- * @onType Query
+ * @RelayResolver Query.live_user_suspends_when_odd: User
  * @live
  */
-function live_user_suspends_when_odd(): LiveState<DataID> {
+function live_user_suspends_when_odd(): LiveState<{|+id: DataID|}> {
   return {
     read() {
       const number = Selectors.getNumber(GLOBAL_STORE.getState());
       if (number % 2 !== 0) {
         return suspenseSentinel();
       } else {
-        return String(number);
+        return {id: String(number)};
       }
     },
     subscribe(cb): () => void {

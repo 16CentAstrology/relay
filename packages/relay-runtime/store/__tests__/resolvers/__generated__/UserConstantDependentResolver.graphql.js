@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<a97c2f7b6a0d7e5c3d850f4adbfb0b17>>
+ * @generated SignedSource<<88cbf6b2de4c792fa3dd5dd0dd50006e>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -20,15 +20,18 @@
 import type { Fragment, ReaderFragment } from 'relay-runtime';
 import type { UserConstantResolver$key } from "./UserConstantResolver.graphql";
 import type { FragmentType } from "relay-runtime";
-import {constant as userConstantResolver} from "../UserConstantResolver.js";
-// Type assertion validating that `userConstantResolver` resolver is correctly implemented.
+import {constant as userConstantResolverType} from "../UserConstantResolver.js";
+import type { TestResolverContextType } from "../../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userConstantResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userConstantResolver: (
-  rootKey: UserConstantResolver$key, 
-) => mixed);
+(userConstantResolverType: (
+  rootKey: UserConstantResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?number);
 declare export opaque type UserConstantDependentResolver$fragmentType: FragmentType;
 export type UserConstantDependentResolver$data = {|
-  +constant: ?$Call<<R>((...empty[]) => R) => R, typeof userConstantResolver>,
+  +constant: ?number,
   +$fragmentType: UserConstantDependentResolver$fragmentType,
 |};
 export type UserConstantDependentResolver$key = {

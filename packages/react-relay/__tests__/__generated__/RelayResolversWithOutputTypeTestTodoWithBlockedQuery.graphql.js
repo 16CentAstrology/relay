@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<5576a492ea3984643a4e15277b0e6272>>
+ * @generated SignedSource<<ba977933c828f765a66f1e251997ea84>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,23 +18,27 @@
 
 /*::
 import type { ClientRequest, ClientQuery } from 'relay-runtime';
-import type { LiveState } from "relay-runtime/store/experimental-live-resolvers/LiveResolverStore";
+import type { LiveState } from "relay-runtime";
 import type { RelayResolversWithOutputTypeTestFragment$fragmentType } from "./RelayResolversWithOutputTypeTestFragment.graphql";
 import type { TodoBlockedByResolverFragment$key } from "./../../../relay-runtime/store/__tests__/resolvers/__generated__/TodoBlockedByResolverFragment.graphql";
-import {todo as queryTodoResolver} from "../../../relay-runtime/store/__tests__/resolvers/QueryTodo.js";
-// Type assertion validating that `queryTodoResolver` resolver is correctly implemented.
+import {todo as queryTodoResolverType} from "../../../relay-runtime/store/__tests__/resolvers/QueryTodo.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryTodoResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryTodoResolver: (
+(queryTodoResolverType: (
   args: {|
     todoID: string,
-  |}, 
+  |},
+  context: TestResolverContextType,
 ) => LiveState<?Query__todo$normalization>);
-import {blocked_by as todoBlockedByResolver} from "../../../relay-runtime/store/__tests__/resolvers/TodoBlockedByResolver.js";
-// Type assertion validating that `todoBlockedByResolver` resolver is correctly implemented.
+import {blocked_by as todoBlockedByResolverType} from "../../../relay-runtime/store/__tests__/resolvers/TodoBlockedByResolver.js";
+// Type assertion validating that `todoBlockedByResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(todoBlockedByResolver: (
-  rootKey: TodoBlockedByResolverFragment$key, 
-) => $ReadOnlyArray<?Todo__blocked_by$normalization>);
+(todoBlockedByResolverType: (
+  rootKey: TodoBlockedByResolverFragment$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?$ReadOnlyArray<?Todo__blocked_by$normalization>);
 import type { Query__todo$normalization } from "./../../../relay-runtime/store/__tests__/resolvers/__generated__/Query__todo$normalization.graphql";
 import type { Todo__blocked_by$normalization } from "./../../../relay-runtime/store/__tests__/resolvers/__generated__/Todo__blocked_by$normalization.graphql";
 export type RelayResolversWithOutputTypeTestTodoWithBlockedQuery$variables = {|
@@ -67,7 +71,35 @@ v1 = [
     "name": "todoID",
     "variableName": "id"
   }
-];
+],
+v2 = {
+  "kind": "InlineFragment",
+  "selections": [
+    {
+      "name": "self",
+      "args": null,
+      "fragment": {
+        "kind": "InlineFragment",
+        "selections": [
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "todo_id",
+            "storageKey": null
+          }
+        ],
+        "type": "Todo",
+        "abstractKey": null
+      },
+      "kind": "RelayResolver",
+      "storageKey": null,
+      "isOutputType": true
+    }
+  ],
+  "type": "Todo",
+  "abstractKey": null
+};
 return {
   "fragment": {
     "argumentDefinitions": (v0/*: any*/),
@@ -80,6 +112,7 @@ return {
       {
         "kind": "ClientEdgeToClientObject",
         "concreteType": "Todo",
+        "modelResolvers": null,
         "backingField": {
           "alias": null,
           "args": (v1/*: any*/),
@@ -89,6 +122,7 @@ return {
           "resolverModule": require('./../../../relay-runtime/store/__tests__/resolvers/QueryTodo').todo,
           "path": "todo",
           "normalizationInfo": {
+            "kind": "OutputType",
             "concreteType": "Todo",
             "plural": false,
             "normalizationNode": require('./../../../relay-runtime/store/__tests__/resolvers/__generated__/Query__todo$normalization.graphql')
@@ -105,6 +139,7 @@ return {
             {
               "kind": "ClientEdgeToClientObject",
               "concreteType": "Todo",
+              "modelResolvers": null,
               "backingField": {
                 "alias": null,
                 "args": null,
@@ -116,8 +151,9 @@ return {
                 "kind": "RelayResolver",
                 "name": "blocked_by",
                 "resolverModule": require('./../../../relay-runtime/store/__tests__/resolvers/TodoBlockedByResolver').blocked_by,
-                "path": "blocked_by",
+                "path": "todo.blocked_by",
                 "normalizationInfo": {
+                  "kind": "OutputType",
                   "concreteType": "Todo",
                   "plural": true,
                   "normalizationNode": require('./../../../relay-runtime/store/__tests__/resolvers/__generated__/Todo__blocked_by$normalization.graphql')
@@ -155,16 +191,135 @@ return {
     "name": "RelayResolversWithOutputTypeTestTodoWithBlockedQuery",
     "selections": [
       {
-        "kind": "ClientExtension",
-        "selections": [
-          {
-            "name": "todo",
-            "args": (v1/*: any*/),
-            "fragment": null,
-            "kind": "RelayResolver",
-            "storageKey": null
-          }
-        ]
+        "kind": "ClientEdgeToClientObject",
+        "backingField": {
+          "name": "todo",
+          "args": (v1/*: any*/),
+          "fragment": null,
+          "kind": "RelayResolver",
+          "storageKey": null,
+          "isOutputType": true
+        },
+        "linkedField": {
+          "alias": null,
+          "args": (v1/*: any*/),
+          "concreteType": "Todo",
+          "kind": "LinkedField",
+          "name": "todo",
+          "plural": false,
+          "selections": [
+            {
+              "kind": "ClientEdgeToClientObject",
+              "backingField": {
+                "name": "blocked_by",
+                "args": null,
+                "fragment": (v2/*: any*/),
+                "kind": "RelayResolver",
+                "storageKey": null,
+                "isOutputType": true
+              },
+              "linkedField": {
+                "alias": null,
+                "args": null,
+                "concreteType": "Todo",
+                "kind": "LinkedField",
+                "name": "blocked_by",
+                "plural": true,
+                "selections": [
+                  {
+                    "kind": "ClientEdgeToClientObject",
+                    "backingField": {
+                      "name": "text",
+                      "args": null,
+                      "fragment": (v2/*: any*/),
+                      "kind": "RelayResolver",
+                      "storageKey": null,
+                      "isOutputType": true
+                    },
+                    "linkedField": {
+                      "alias": null,
+                      "args": null,
+                      "concreteType": "TodoText",
+                      "kind": "LinkedField",
+                      "name": "text",
+                      "plural": false,
+                      "selections": [
+                        {
+                          "alias": null,
+                          "args": null,
+                          "kind": "ScalarField",
+                          "name": "content",
+                          "storageKey": null
+                        },
+                        {
+                          "alias": null,
+                          "args": null,
+                          "concreteType": "TodoTextStyle",
+                          "kind": "LinkedField",
+                          "name": "style",
+                          "plural": false,
+                          "selections": [
+                            {
+                              "alias": null,
+                              "args": null,
+                              "kind": "ScalarField",
+                              "name": "font_style",
+                              "storageKey": null
+                            },
+                            {
+                              "alias": null,
+                              "args": null,
+                              "concreteType": "TodoTextColor",
+                              "kind": "LinkedField",
+                              "name": "color",
+                              "plural": false,
+                              "selections": [
+                                {
+                                  "name": "human_readable_color",
+                                  "args": null,
+                                  "fragment": {
+                                    "kind": "InlineFragment",
+                                    "selections": [
+                                      {
+                                        "alias": null,
+                                        "args": null,
+                                        "kind": "ScalarField",
+                                        "name": "hex",
+                                        "storageKey": null
+                                      }
+                                    ],
+                                    "type": "TodoTextColor",
+                                    "abstractKey": null
+                                  },
+                                  "kind": "RelayResolver",
+                                  "storageKey": null,
+                                  "isOutputType": true
+                                }
+                              ],
+                              "storageKey": null
+                            }
+                          ],
+                          "storageKey": null
+                        }
+                      ],
+                      "storageKey": null
+                    }
+                  },
+                  {
+                    "name": "complete",
+                    "args": null,
+                    "fragment": (v2/*: any*/),
+                    "kind": "RelayResolver",
+                    "storageKey": null,
+                    "isOutputType": true
+                  }
+                ],
+                "storageKey": null
+              }
+            }
+          ],
+          "storageKey": null
+        }
       }
     ]
   },

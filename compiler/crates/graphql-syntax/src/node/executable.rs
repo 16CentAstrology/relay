@@ -59,6 +59,13 @@ impl ExecutableDefinition {
                 .any(|d| d.name.value == directive_name),
         }
     }
+
+    pub fn selections(&self) -> &[Selection] {
+        match self {
+            ExecutableDefinition::Operation(node) => &node.selections.items,
+            ExecutableDefinition::Fragment(node) => &node.selections.items,
+        }
+    }
 }
 
 impl fmt::Debug for ExecutableDefinition {
@@ -86,12 +93,21 @@ impl OperationDefinition {
         // https://spec.graphql.org/June2018/#sec-Anonymous-Operation-Definitions
         self.operation
             .as_ref()
-            .map(|(_, operation_kind)| *operation_kind)
-            .unwrap_or(OperationKind::Query)
+            .map_or(OperationKind::Query, |(_, operation_kind)| *operation_kind)
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    serde::Serialize
+)]
 pub enum OperationKind {
     Query,
     Mutation,
@@ -157,19 +173,6 @@ impl fmt::Display for TypeCondition {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct DefaultValue {
-    pub span: Span,
-    pub equals: Token,
-    pub value: ConstantValue,
-}
-
-impl fmt::Display for DefaultValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("{}", self.value))
-    }
-}
-
 // Selections
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -216,6 +219,7 @@ pub struct FragmentSpread {
     pub span: Span,
     pub spread: Token,
     pub name: Identifier,
+    pub arguments: Option<List<Argument>>,
     pub directives: Vec<Directive>,
 }
 

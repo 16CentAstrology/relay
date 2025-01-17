@@ -13,38 +13,36 @@
 
 import type {ActorIdentifier} from '../multi-actor-environment/ActorIdentifier';
 import type {
-  NormalizationFlightField,
   NormalizationLinkedField,
+  NormalizationLiveResolverField,
   NormalizationModuleImport,
   NormalizationNode,
+  NormalizationResolverField,
   NormalizationScalarField,
   NormalizationSelection,
 } from '../util/NormalizationNode';
 import type {DataID, Variables} from '../util/RelayRuntimeTypes';
 import type {GetDataID} from './RelayResponseNormalizer';
 import type {
+  LogFunction,
   MissingFieldHandler,
   MutableRecordSource,
   NormalizationSelector,
   OperationLoader,
-  ReactFlightReachableExecutableDefinitions,
   RecordSource,
 } from './RelayStoreTypes';
 
 const RelayRecordSourceMutator = require('../mutations/RelayRecordSourceMutator');
 const RelayRecordSourceProxy = require('../mutations/RelayRecordSourceProxy');
 const getOperation = require('../util/getOperation');
-const RelayConcreteNode = require('../util/RelayConcreteNode');
-const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const {isClientID} = require('./ClientID');
 const cloneRelayHandleSourceField = require('./cloneRelayHandleSourceField');
 const cloneRelayScalarHandleSourceField = require('./cloneRelayScalarHandleSourceField');
 const {getLocalVariables} = require('./RelayConcreteVariables');
 const RelayModernRecord = require('./RelayModernRecord');
 const {EXISTENT, UNKNOWN} = require('./RelayRecordState');
-const RelayStoreReactFlightUtils = require('./RelayStoreReactFlightUtils');
 const RelayStoreUtils = require('./RelayStoreUtils');
-const {generateTypeID, TYPE_SCHEMA_TYPE} = require('./TypeID');
+const {TYPE_SCHEMA_TYPE, generateTypeID} = require('./TypeID');
 const invariant = require('invariant');
 
 export type Availability = {
@@ -52,25 +50,7 @@ export type Availability = {
   +mostRecentlyInvalidatedAt: ?number,
 };
 
-const {
-  ACTOR_CHANGE,
-  CONDITION,
-  CLIENT_COMPONENT,
-  CLIENT_EXTENSION,
-  DEFER,
-  FLIGHT_FIELD,
-  FRAGMENT_SPREAD,
-  INLINE_FRAGMENT,
-  LINKED_FIELD,
-  LINKED_HANDLE,
-  MODULE_IMPORT,
-  RELAY_RESOLVER,
-  SCALAR_FIELD,
-  SCALAR_HANDLE,
-  STREAM,
-  TYPE_DISCRIMINATOR,
-} = RelayConcreteNode;
-const {ROOT_ID, getModuleOperationKey, getStorageKey, getArgumentValues} =
+const {getModuleOperationKey, getStorageKey, getArgumentValues} =
   RelayStoreUtils;
 
 /**
@@ -92,7 +72,14 @@ function check(
   operationLoader: ?OperationLoader,
   getDataID: GetDataID,
   shouldProcessClientComponents: ?boolean,
+  log: ?LogFunction,
 ): Availability {
+  if (log != null) {
+    log({
+      name: 'store.datachecker.start',
+      selector,
+    });
+  }
   const {dataID, node, variables} = selector;
   const checker = new DataChecker(
     getSourceForActor,
@@ -104,7 +91,14 @@ function check(
     getDataID,
     shouldProcessClientComponents,
   );
-  return checker.check(node, dataID);
+  const result = checker.check(node, dataID);
+  if (log != null) {
+    log({
+      name: 'store.datachecker.end',
+      selector,
+    });
+  }
+  return result;
 }
 
 /**
@@ -115,7 +109,6 @@ class DataChecker {
   _mostRecentlyInvalidatedAt: number | null;
   _mutator: RelayRecordSourceMutator;
   _operationLoader: OperationLoader | null;
-  _operationLastWrittenAt: ?number;
   _recordSourceProxy: RelayRecordSourceProxy;
   _recordWasMissing: boolean;
   _source: RecordSource;
@@ -325,20 +318,20 @@ class DataChecker {
   ): void {
     selections.forEach(selection => {
       switch (selection.kind) {
-        case SCALAR_FIELD:
+        case 'ScalarField':
           this._checkScalar(selection, dataID);
           break;
-        case LINKED_FIELD:
+        case 'LinkedField':
           if (selection.plural) {
             this._checkPluralLink(selection, dataID);
           } else {
             this._checkLink(selection, dataID);
           }
           break;
-        case ACTOR_CHANGE:
+        case 'ActorChange':
           this._checkActorChange(selection.linkedField, dataID);
           break;
-        case CONDITION:
+        case 'Condition':
           const conditionValue = Boolean(
             this._getVariableValue(selection.condition),
           );
@@ -346,7 +339,7 @@ class DataChecker {
             this._traverseSelections(selection.selections, dataID);
           }
           break;
-        case INLINE_FRAGMENT: {
+        case 'InlineFragment': {
           const {abstractKey} = selection;
           if (abstractKey == null) {
             // concrete type refinement: only check data if the type exactly matches
@@ -383,7 +376,7 @@ class DataChecker {
           }
           break;
         }
-        case LINKED_HANDLE: {
+        case 'LinkedHandle': {
           // Handles have no selections themselves; traverse the original field
           // where the handle was set-up instead.
           const handleField = cloneRelayHandleSourceField(
@@ -398,7 +391,7 @@ class DataChecker {
           }
           break;
         }
-        case SCALAR_HANDLE: {
+        case 'ScalarHandle': {
           const handleField = cloneRelayScalarHandleSourceField(
             selection,
             selections,
@@ -408,14 +401,14 @@ class DataChecker {
           this._checkScalar(handleField, dataID);
           break;
         }
-        case MODULE_IMPORT:
+        case 'ModuleImport':
           this._checkModuleImport(selection, dataID);
           break;
-        case DEFER:
-        case STREAM:
+        case 'Defer':
+        case 'Stream':
           this._traverseSelections(selection.selections, dataID);
           break;
-        case FRAGMENT_SPREAD:
+        case 'FragmentSpread':
           const prevVariables = this._variables;
           this._variables = getLocalVariables(
             this._variables,
@@ -425,12 +418,12 @@ class DataChecker {
           this._traverseSelections(selection.fragment.selections, dataID);
           this._variables = prevVariables;
           break;
-        case CLIENT_EXTENSION:
+        case 'ClientExtension':
           const recordWasMissing = this._recordWasMissing;
           this._traverseSelections(selection.selections, dataID);
           this._recordWasMissing = recordWasMissing;
           break;
-        case TYPE_DISCRIMINATOR:
+        case 'TypeDiscriminator':
           const {abstractKey} = selection;
           const recordType = this._mutator.getType(dataID);
           invariant(
@@ -449,23 +442,20 @@ class DataChecker {
             this._handleMissing();
           } // else: if it does or doesn't implement, we don't need to check or skip anything else
           break;
-        case FLIGHT_FIELD:
-          if (RelayFeatureFlags.ENABLE_REACT_FLIGHT_COMPONENT_FIELD) {
-            this._checkFlightField(selection, dataID);
-          } else {
-            throw new Error('Flight fields are not yet supported.');
-          }
-          break;
-        case CLIENT_COMPONENT:
+        case 'ClientComponent':
           if (this._shouldProcessClientComponents === false) {
             break;
           }
           this._traverseSelections(selection.fragment.selections, dataID);
           break;
-        case RELAY_RESOLVER:
-          if (selection.fragment) {
-            this._traverseSelections([selection.fragment], dataID);
-          }
+        case 'RelayResolver':
+          this._checkResolver(selection, dataID);
+          break;
+        case 'RelayLiveResolver':
+          this._checkResolver(selection, dataID);
+          break;
+        case 'ClientEdgeToClientObject':
+          this._checkResolver(selection.backingField, dataID);
           break;
         default:
           (selection: empty);
@@ -476,6 +466,14 @@ class DataChecker {
           );
       }
     });
+  }
+  _checkResolver(
+    resolver: NormalizationResolverField | NormalizationLiveResolverField,
+    dataID: DataID,
+  ) {
+    if (resolver.fragment) {
+      this._traverseSelections([resolver.fragment], dataID);
+    }
   }
 
   _checkModuleImport(
@@ -592,57 +590,6 @@ class DataChecker {
       this._mutator = prevMutator;
       this._recordSourceProxy = prevRecordSourceProxy;
     }
-  }
-
-  _checkFlightField(field: NormalizationFlightField, dataID: DataID): void {
-    const storageKey = getStorageKey(field, this._variables);
-    const linkedID = this._mutator.getLinkedRecordID(dataID, storageKey);
-
-    if (linkedID == null) {
-      if (linkedID === undefined) {
-        this._handleMissing();
-        return;
-      }
-      return;
-    }
-
-    const tree = this._mutator.getValue(
-      linkedID,
-      RelayStoreReactFlightUtils.REACT_FLIGHT_TREE_STORAGE_KEY,
-    );
-    const reachableExecutableDefinitions = this._mutator.getValue(
-      linkedID,
-      RelayStoreReactFlightUtils.REACT_FLIGHT_EXECUTABLE_DEFINITIONS_STORAGE_KEY,
-    );
-
-    if (tree == null || !Array.isArray(reachableExecutableDefinitions)) {
-      this._handleMissing();
-      return;
-    }
-
-    const operationLoader = this._operationLoader;
-    invariant(
-      operationLoader !== null,
-      'DataChecker: Expected an operationLoader to be configured when using ' +
-        'React Flight.',
-    );
-    // In Flight, the variables that are in scope for reachable executable
-    // definitions aren't the same as what's in scope for the outer query.
-    const prevVariables = this._variables;
-    // $FlowFixMe[incompatible-cast]
-    for (const definition of (reachableExecutableDefinitions: Array<ReactFlightReachableExecutableDefinitions>)) {
-      this._variables = definition.variables;
-      const normalizationRootNode = operationLoader.get(definition.module);
-      if (normalizationRootNode != null) {
-        const operation = getOperation(normalizationRootNode);
-        this._traverseSelections(operation.selections, ROOT_ID);
-      } else {
-        // If the fragment is not available, we assume that the data cannot have
-        // been processed yet and must therefore be missing.
-        this._handleMissing();
-      }
-    }
-    this._variables = prevVariables;
   }
 
   // For abstract types defined in the client schema extension, we won't be

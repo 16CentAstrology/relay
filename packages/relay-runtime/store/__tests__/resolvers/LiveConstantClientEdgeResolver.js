@@ -11,20 +11,19 @@
 
 'use strict';
 
-import type {DataID} from 'relay-runtime';
-import type {LiveState} from 'relay-runtime/store/experimental-live-resolvers/LiveResolverStore';
+import type {ConcreteClientEdgeResolverReturnType} from 'relay-runtime';
+import type {LiveState} from 'relay-runtime';
 
 /**
- * @RelayResolver
- * @fieldName live_constant_client_edge
- * @onType Query
- * @edgeTo User
+ * @RelayResolver Query.live_constant_client_edge: User
  * @live
  */
-function live_constant_client_edge(): LiveState<DataID> {
+function live_constant_client_edge(): LiveState<
+  ConcreteClientEdgeResolverReturnType<>,
+> {
   return {
     read() {
-      return '1338';
+      return {id: '1338'};
     },
     subscribe(cb) {
       return () => {};

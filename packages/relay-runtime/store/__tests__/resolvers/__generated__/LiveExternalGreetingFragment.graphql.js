@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<5a14ac0999c3a2d74205e46fa9fdd632>>
+ * @generated SignedSource<<52969e8d13280a8efa0446b45423d7ee>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,12 +18,17 @@
 
 /*::
 import type { Fragment, ReaderFragment } from 'relay-runtime';
-import type { LiveState } from "relay-runtime/store/experimental-live-resolvers/LiveResolverStore";
-import type { FragmentType } from "relay-runtime";
-import {live_user_suspends_when_odd as queryLiveUserSuspendsWhenOddResolver} from "../LiveUserSuspendsWhenOdd.js";
-// Type assertion validating that `queryLiveUserSuspendsWhenOddResolver` resolver is correctly implemented.
+import type { LiveState, FragmentType, DataID } from "relay-runtime";
+import {live_user_suspends_when_odd as queryLiveUserSuspendsWhenOddResolverType} from "../LiveUserSuspendsWhenOdd.js";
+import type { TestResolverContextType } from "../../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryLiveUserSuspendsWhenOddResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryLiveUserSuspendsWhenOddResolver: () => LiveState<any>);
+(queryLiveUserSuspendsWhenOddResolverType: (
+  args: void,
+  context: TestResolverContextType,
+) => LiveState<?{|
+  +id: DataID,
+|}>);
 declare export opaque type LiveExternalGreetingFragment$fragmentType: FragmentType;
 export type LiveExternalGreetingFragment$data = {|
   +user: ?{|

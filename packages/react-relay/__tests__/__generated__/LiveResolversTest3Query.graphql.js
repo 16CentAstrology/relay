@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<93e535f1b0ada38075a674cd447116a6>>
+ * @generated SignedSource<<dfc938445f386855fb5f6e5528b216c2>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,15 +19,18 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { CounterPlusOneResolver$key } from "./../../../relay-runtime/store/__tests__/resolvers/__generated__/CounterPlusOneResolver.graphql";
-import {counter_plus_one as queryCounterPlusOneResolver} from "../../../relay-runtime/store/__tests__/resolvers/CounterPlusOneResolver.js";
-// Type assertion validating that `queryCounterPlusOneResolver` resolver is correctly implemented.
+import {counter_plus_one as queryCounterPlusOneResolverType} from "../../../relay-runtime/store/__tests__/resolvers/CounterPlusOneResolver.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryCounterPlusOneResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryCounterPlusOneResolver: (
-  rootKey: CounterPlusOneResolver$key, 
-) => mixed);
+(queryCounterPlusOneResolverType: (
+  rootKey: CounterPlusOneResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?number);
 export type LiveResolversTest3Query$variables = {||};
 export type LiveResolversTest3Query$data = {|
-  +counter_plus_one: ?$Call<<R>((...empty[]) => R) => R, typeof queryCounterPlusOneResolver>,
+  +counter_plus_one: ?number,
 |};
 export type LiveResolversTest3Query = {|
   response: LiveResolversTest3Query$data,
@@ -112,14 +115,16 @@ var node/*: ConcreteRequest*/ = {
                 "abstractKey": null
               },
               "kind": "RelayResolver",
-              "storageKey": null
+              "storageKey": null,
+              "isOutputType": true
             }
           ],
           "type": "Query",
           "abstractKey": null
         },
         "kind": "RelayResolver",
-        "storageKey": null
+        "storageKey": null,
+        "isOutputType": true
       }
     ]
   },

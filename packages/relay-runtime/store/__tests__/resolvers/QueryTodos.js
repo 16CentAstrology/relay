@@ -11,20 +11,16 @@
 
 'use strict';
 
-import type {LiveState} from '../../experimental-live-resolvers/LiveResolverStore';
+import type {Query__todos$normalization as ReturnType} from './__generated__/Query__todos$normalization.graphql';
+import type {LiveState} from 'relay-runtime';
 
 const {
-  TODO_STORE,
   Selectors,
+  TODO_STORE,
 } = require('relay-runtime/store/__tests__/resolvers/ExampleTodoStore');
 
-import type {Query__todos$normalization as ReturnType} from './__generated__/Query__todos$normalization.graphql';
-
 /**
- * @RelayResolver
- * @onType Query
- * @fieldName todos(first: Int, last: Int)
- * @outputType TodoConnection
+ * @RelayResolver Query.todos(first: Int, last: Int): TodoConnection
  * @live
  */
 function todos(args: {first: ?number, last: ?number}): LiveState<?ReturnType> {

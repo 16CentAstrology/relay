@@ -11,12 +11,11 @@
 
 'use strict';
 
-import type React from 'React';
 import type {
+  $RelayProps,
   RelayPaginationProp,
   RelayProp,
   RelayRefetchProp,
-  $RelayProps,
 } from 'react-relay';
 
 const invariant = require('invariant');

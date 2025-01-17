@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<25e976a302808107b7e7f22a65af8067>>
+ * @generated SignedSource<<309cb9691fcc3100cdc2371e35bd3d4b>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,16 +19,19 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserNamePassthroughResolver$key } from "./../resolvers/__generated__/UserNamePassthroughResolver.graphql";
-import {name_passthrough as userNamePassthroughResolver} from "../resolvers/UserNamePassthroughResolver.js";
-// Type assertion validating that `userNamePassthroughResolver` resolver is correctly implemented.
+import {name_passthrough as userNamePassthroughResolverType} from "../resolvers/UserNamePassthroughResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userNamePassthroughResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userNamePassthroughResolver: (
-  rootKey: UserNamePassthroughResolver$key, 
-) => mixed);
+(userNamePassthroughResolverType: (
+  rootKey: UserNamePassthroughResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?string);
 export type RelayReaderResolverTest8Query$variables = {||};
 export type RelayReaderResolverTest8Query$data = {|
   +me: ?{|
-    +name_passthrough: $NonMaybeType<$Call<<R>((...empty[]) => R) => R, typeof userNamePassthroughResolver>>,
+    +name_passthrough: $NonMaybeType<?string>,
   |},
 |};
 export type RelayReaderResolverTest8Query = {|
@@ -67,8 +70,7 @@ var node/*: ConcreteRequest*/ = {
               "resolverModule": require('./../resolvers/UserNamePassthroughResolver').name_passthrough,
               "path": "me.name_passthrough"
             },
-            "action": "NONE",
-            "path": "me.name_passthrough"
+            "action": "NONE"
           }
         ],
         "storageKey": null
@@ -109,7 +111,8 @@ var node/*: ConcreteRequest*/ = {
               "abstractKey": null
             },
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           {
             "alias": null,

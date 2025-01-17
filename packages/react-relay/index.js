@@ -20,6 +20,7 @@ const ReactRelayRefetchContainer = require('./ReactRelayRefetchContainer');
 const EntryPointContainer = require('./relay-hooks/EntryPointContainer.react');
 const loadEntryPoint = require('./relay-hooks/loadEntryPoint');
 const {loadQuery} = require('./relay-hooks/loadQuery');
+const ProfilerContext = require('./relay-hooks/ProfilerContext');
 const RelayEnvironmentProvider = require('./relay-hooks/RelayEnvironmentProvider');
 const useClientQuery = require('./relay-hooks/useClientQuery');
 const useEntryPointLoader = require('./relay-hooks/useEntryPointLoader');
@@ -27,6 +28,7 @@ const useFragment = require('./relay-hooks/useFragment');
 const useLazyLoadQuery = require('./relay-hooks/useLazyLoadQuery');
 const useMutation = require('./relay-hooks/useMutation');
 const usePaginationFragment = require('./relay-hooks/usePaginationFragment');
+const usePrefetchableForwardPaginationFragment = require('./relay-hooks/usePrefetchableForwardPaginationFragment');
 const usePreloadedQuery = require('./relay-hooks/usePreloadedQuery');
 const useQueryLoader = require('./relay-hooks/useQueryLoader');
 const useRefetchableFragment = require('./relay-hooks/useRefetchableFragment');
@@ -34,7 +36,6 @@ const useRelayEnvironment = require('./relay-hooks/useRelayEnvironment');
 const useSubscribeToInvalidationState = require('./relay-hooks/useSubscribeToInvalidationState');
 const useSubscription = require('./relay-hooks/useSubscription');
 const RelayRuntime = require('relay-runtime');
-const ProfilerContext = require('./relay-hooks/ProfilerContext');
 
 export type {
   $FragmentRef,
@@ -59,7 +60,7 @@ export type {
   RefetchFn,
   RefetchFnDynamic,
   Options as RefetchOptions,
-} from './relay-hooks/useRefetchableFragmentNode';
+} from './relay-hooks/legacy/useRefetchableFragmentNode';
 export type {
   DataID,
   DeclarativeMutationConfig,
@@ -125,6 +126,8 @@ module.exports = {
   usePaginationFragment: usePaginationFragment,
   usePreloadedQuery: usePreloadedQuery,
   useRefetchableFragment: useRefetchableFragment,
+  usePrefetchableForwardPaginationFragment:
+    usePrefetchableForwardPaginationFragment,
   useRelayEnvironment: useRelayEnvironment,
   useSubscribeToInvalidationState: useSubscribeToInvalidationState,
   useSubscription: useSubscription,

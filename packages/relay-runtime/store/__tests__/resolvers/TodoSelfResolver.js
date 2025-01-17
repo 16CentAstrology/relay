@@ -11,24 +11,20 @@
 
 'use strict';
 
-import type {LiveState} from '../../experimental-live-resolvers/LiveResolverStore';
 import type {TodoSelfResolverFragment$key} from './__generated__/TodoSelfResolverFragment.graphql';
-
-const {
-  TODO_STORE,
-  Selectors,
-} = require('relay-runtime/store/__tests__/resolvers/ExampleTodoStore');
-
-const {readFragment} = require('relay-runtime/store/ResolverFragments');
-const {graphql} = require('relay-runtime');
-
+import type {LiveState} from 'relay-runtime';
 import type {TodoItem} from 'relay-runtime/store/__tests__/resolvers/ExampleTodoStore';
 
+const {graphql} = require('relay-runtime');
+const {
+  Selectors,
+  TODO_STORE,
+} = require('relay-runtime/store/__tests__/resolvers/ExampleTodoStore');
+const {readFragment} = require('relay-runtime/store/ResolverFragments');
+
 /**
- * @RelayResolver
- * @onType Todo
+ * @RelayResolver Todo.self: RelayResolverValue
  * @rootFragment TodoSelfResolverFragment
- * @fieldName self
  * @live
  */
 function self(rootKey: TodoSelfResolverFragment$key): LiveState<?TodoItem> {

@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<06beabc914072f477d97918752299794>>
+ * @generated SignedSource<<0841992868c0ef9b9b3488eac7b92ccd>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,17 +19,19 @@
 /*::
 import type { Fragment, ReaderFragment } from 'relay-runtime';
 import type { LiveCounterResolver$key } from "./LiveCounterResolver.graphql";
-import type { LiveState } from "relay-runtime/store/experimental-live-resolvers/LiveResolverStore";
-import type { FragmentType } from "relay-runtime";
-import {counter as queryCounterResolver} from "../LiveCounterResolver.js";
-// Type assertion validating that `queryCounterResolver` resolver is correctly implemented.
+import type { LiveState, FragmentType } from "relay-runtime";
+import {counter as queryCounterResolverType} from "../LiveCounterResolver.js";
+import type { TestResolverContextType } from "../../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryCounterResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryCounterResolver: (
-  rootKey: LiveCounterResolver$key, 
-) => LiveState<any>);
+(queryCounterResolverType: (
+  rootKey: LiveCounterResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => LiveState<?number>);
 declare export opaque type CounterPlusOneResolver$fragmentType: FragmentType;
 export type CounterPlusOneResolver$data = {|
-  +counter: $NonMaybeType<$Call<$Call<<R>((...empty[]) => R) => R, typeof queryCounterResolver>["read"]>>,
+  +counter: $NonMaybeType<?number>,
   +$fragmentType: CounterPlusOneResolver$fragmentType,
 |};
 export type CounterPlusOneResolver$key = {
@@ -60,8 +62,7 @@ var node/*: ReaderFragment*/ = {
         "resolverModule": require('./../LiveCounterResolver').counter,
         "path": "counter"
       },
-      "action": "THROW",
-      "path": "counter"
+      "action": "THROW"
     }
   ],
   "type": "Query",

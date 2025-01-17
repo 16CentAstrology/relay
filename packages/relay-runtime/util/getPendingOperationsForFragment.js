@@ -30,9 +30,9 @@ function getPendingOperationsForFragment(
   if (promise != null) {
     pendingOperations = [fragmentOwner];
   } else {
-    const result = environment
-      .getOperationTracker()
-      .getPendingOperationsAffectingOwner(fragmentOwner);
+    const operationTracker = environment.getOperationTracker();
+    const result =
+      operationTracker.getPendingOperationsAffectingOwner(fragmentOwner);
 
     pendingOperations = result?.pendingOperations ?? [];
     promise = result?.promise ?? null;
@@ -54,6 +54,16 @@ function getPendingOperationsForFragment(
       : `Relay(${pendingOperationName}:${fragmentName})`;
   // $FlowExpectedError[prop-missing] Expando to annotate Promises.
   promise.displayName = promiseDisplayName;
+
+  // In order to monitor the efficacy of RelayOperationTracker, we log
+  // enough information to track whether we are suspending on the fragment
+  // owner's operation, or some other operation.
+  environment.__log({
+    name: 'pendingoperation.found',
+    fragment: fragmentNode,
+    fragmentOwner,
+    pendingOperations,
+  });
   return {promise, pendingOperations};
 }
 

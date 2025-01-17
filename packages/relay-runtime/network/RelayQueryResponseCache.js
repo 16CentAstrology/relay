@@ -17,7 +17,7 @@ import type {
   GraphQLSingularResponse,
 } from './RelayNetworkTypes';
 
-const stableCopy = require('../util/stableCopy');
+const {stableCopy} = require('../util/stableCopy');
 const invariant = require('invariant');
 
 type Response = {
@@ -71,7 +71,6 @@ class RelayQueryResponseCache {
     if (Array.isArray(response.payload)) {
       return response.payload.map(
         payload =>
-          // $FlowFixMe[incompatible-cast]
           ({
             ...payload,
             extensions: {
@@ -81,7 +80,6 @@ class RelayQueryResponseCache {
           }: GraphQLSingularResponse),
       );
     }
-    // $FlowFixMe[incompatible-cast]
     return ({
       ...response.payload,
       extensions: {

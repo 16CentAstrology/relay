@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<db6742fac17526d9b7a59eec34ab04c9>>
+ * @generated SignedSource<<ee4067ace6bb0997f24ff742e76796eb>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,16 +19,19 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserConstantDependentResolver$key } from "./../resolvers/__generated__/UserConstantDependentResolver.graphql";
-import {constant_dependent as userConstantDependentResolver} from "../resolvers/UserConstantDependentResolver.js";
-// Type assertion validating that `userConstantDependentResolver` resolver is correctly implemented.
+import {constant_dependent as userConstantDependentResolverType} from "../resolvers/UserConstantDependentResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userConstantDependentResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userConstantDependentResolver: (
-  rootKey: UserConstantDependentResolver$key, 
-) => mixed);
+(userConstantDependentResolverType: (
+  rootKey: UserConstantDependentResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?number);
 export type RelayReaderResolverTest2Query$variables = {||};
 export type RelayReaderResolverTest2Query$data = {|
   +me: ?{|
-    +constant_dependent: ?$Call<<R>((...empty[]) => R) => R, typeof userConstantDependentResolver>,
+    +constant_dependent: ?number,
   |},
 |};
 export type RelayReaderResolverTest2Query = {|
@@ -110,14 +113,16 @@ var node/*: ConcreteRequest*/ = {
                     "abstractKey": null
                   },
                   "kind": "RelayResolver",
-                  "storageKey": null
+                  "storageKey": null,
+                  "isOutputType": true
                 }
               ],
               "type": "User",
               "abstractKey": null
             },
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           {
             "alias": null,

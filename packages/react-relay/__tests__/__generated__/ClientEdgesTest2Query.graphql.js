@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<5a15581b463505ce98085e7b799edfcf>>
+ * @generated SignedSource<<62fd1751199c25cf4699ec44dc23beb3>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,14 +18,19 @@
 
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
-import {client_node as userClientNodeResolver} from "../../../relay-runtime/store/__tests__/resolvers/UserClientEdgeNodeResolver.js";
-// Type assertion validating that `userClientNodeResolver` resolver is correctly implemented.
+import type { DataID } from "relay-runtime";
+import {client_node as userClientNodeResolverType} from "../../../relay-runtime/store/__tests__/resolvers/UserClientEdgeNodeResolver.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userClientNodeResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userClientNodeResolver: (
+(userClientNodeResolverType: (
   args: {|
     id: string,
-  |}, 
-) => mixed);
+  |},
+  context: TestResolverContextType,
+) => ?{|
+  +id: DataID,
+|});
 export type ClientEdgesTest2Query$variables = {|
   id: string,
 |};
@@ -134,23 +139,19 @@ return {
         "plural": false,
         "selections": [
           {
+            "name": "client_node",
+            "args": (v1/*: any*/),
+            "fragment": null,
+            "kind": "RelayResolver",
+            "storageKey": null,
+            "isOutputType": false
+          },
+          {
             "alias": null,
             "args": null,
             "kind": "ScalarField",
             "name": "id",
             "storageKey": null
-          },
-          {
-            "kind": "ClientExtension",
-            "selections": [
-              {
-                "name": "client_node",
-                "args": (v1/*: any*/),
-                "fragment": null,
-                "kind": "RelayResolver",
-                "storageKey": null
-              }
-            ]
           }
         ],
         "storageKey": null

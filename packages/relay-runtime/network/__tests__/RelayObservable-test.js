@@ -11,8 +11,13 @@
 'use strict';
 
 const RelayObservable = require('../RelayObservable');
+const {
+  injectPromisePolyfill__DEPRECATED,
+} = require('relay-test-utils-internal');
 
-jest.useFakeTimers('legacy');
+injectPromisePolyfill__DEPRECATED();
+
+jest.useFakeTimers({legacyFakeTimers: true});
 
 describe('RelayObservable', () => {
   beforeEach(() => {

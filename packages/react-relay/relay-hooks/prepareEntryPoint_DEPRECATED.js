@@ -10,19 +10,21 @@
  */
 
 'use strict';
-
+import type {OperationType} from '../../relay-runtime/util/RelayRuntimeTypes';
 import type {
   EntryPoint,
   EntryPointComponent,
   EnvironmentProviderOptions,
   IEnvironmentProvider,
+  PreloadedQuery,
 } from './EntryPointTypes.flow';
 
 const preloadQuery = require('./preloadQuery_DEPRECATED');
 
 function prepareEntryPoint<
   TEntryPointParams: {...},
-  TPreloadedQueries: {...},
+  // $FlowExpectedError[unclear-type] Need any to make it supertype of all PreloadedQuery
+  TPreloadedQueries: {+[string]: PreloadedQuery<any>},
   TPreloadedEntryPoints: {...},
   TRuntimeProps: {...},
   TExtraProps,
@@ -40,12 +42,15 @@ function prepareEntryPoint<
 ): void {
   // Start loading the code for the entrypoint
   if (entryPoint.root.getModuleIfRequired() == null) {
+    // $FlowFixMe[unused-promise]
     entryPoint.root.load();
   }
   const preloadProps = entryPoint.getPreloadProps(entryPointParams);
   const {queries, entryPoints} = preloadProps;
-  const preloadedQueries: $Shape<TPreloadedQueries> = {};
-  const preloadedEntryPoints: $Shape<TPreloadedEntryPoints> = {};
+  // $FlowFixMe[incompatible-type]
+  const preloadedQueries: Partial<TPreloadedQueries> = {};
+  // $FlowFixMe[incompatible-type]
+  const preloadedEntryPoints: Partial<TPreloadedEntryPoints> = {};
   if (queries != null) {
     const queriesPropNames = Object.keys(queries);
     queriesPropNames.forEach(queryPropName => {
@@ -56,7 +61,8 @@ function prepareEntryPoint<
         environmentProviderOptions,
       );
 
-      preloadedQueries[queryPropName] = preloadQuery(
+      // $FlowFixMe[incompatible-type]
+      preloadedQueries[queryPropName] = preloadQuery<OperationType, mixed>(
         environment,
         parameters,
         variables,

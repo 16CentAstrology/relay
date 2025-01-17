@@ -13,14 +13,12 @@
 
 import type {TodoCompleteResolverFragment$key} from './__generated__/TodoCompleteResolverFragment.graphql';
 
-const {readFragment} = require('relay-runtime/store/ResolverFragments');
 const {graphql} = require('relay-runtime');
+const {readFragment} = require('relay-runtime/store/ResolverFragments');
 
 /**
- * @RelayResolver
- * @onType Todo
+ * @RelayResolver Todo.complete: Boolean
  * @rootFragment TodoCompleteResolverFragment
- * @fieldName complete
  */
 function complete(rootKey: TodoCompleteResolverFragment$key): ?boolean {
   const data = readFragment(

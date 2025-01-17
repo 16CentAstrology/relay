@@ -12,54 +12,34 @@
 'use strict';
 
 import type {
-  NormalizationFlightField,
+  NormalizationClientEdgeToClientObject,
   NormalizationLinkedField,
+  NormalizationLiveResolverField,
   NormalizationModuleImport,
   NormalizationNode,
-  NormalizationSelection,
   NormalizationResolverField,
+  NormalizationSelection,
 } from '../util/NormalizationNode';
 import type {DataID, Variables} from '../util/RelayRuntimeTypes';
 import type {
   DataIDSet,
   NormalizationSelector,
   OperationLoader,
-  ReactFlightReachableExecutableDefinitions,
   Record,
   RecordSource,
 } from './RelayStoreTypes';
 
 const getOperation = require('../util/getOperation');
-const RelayConcreteNode = require('../util/RelayConcreteNode');
-const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const cloneRelayHandleSourceField = require('./cloneRelayHandleSourceField');
+const getOutputTypeRecordIDs = require('./live-resolvers/getOutputTypeRecordIDs');
 const {getLocalVariables} = require('./RelayConcreteVariables');
 const RelayModernRecord = require('./RelayModernRecord');
-const RelayStoreReactFlightUtils = require('./RelayStoreReactFlightUtils');
 const RelayStoreUtils = require('./RelayStoreUtils');
 const {generateTypeID} = require('./TypeID');
 const invariant = require('invariant');
-const getOutputTypeRecordIDs = require('./experimental-live-resolvers/getOutputTypeRecordIDs');
 
-const {
-  ACTOR_CHANGE,
-  CONDITION,
-  CLIENT_COMPONENT,
-  CLIENT_EXTENSION,
-  DEFER,
-  FLIGHT_FIELD,
-  FRAGMENT_SPREAD,
-  INLINE_FRAGMENT,
-  LINKED_FIELD,
-  MODULE_IMPORT,
-  LINKED_HANDLE,
-  SCALAR_FIELD,
-  SCALAR_HANDLE,
-  STREAM,
-  TYPE_DISCRIMINATOR,
-  RELAY_RESOLVER,
-} = RelayConcreteNode;
-const {ROOT_ID, getStorageKey, getModuleOperationKey} = RelayStoreUtils;
+const {getReadTimeResolverStorageKey, getStorageKey, getModuleOperationKey} =
+  RelayStoreUtils;
 
 function mark(
   recordSource: RecordSource,
@@ -137,18 +117,18 @@ class RelayReferenceMarker {
     selections.forEach(selection => {
       /* eslint-disable no-fallthrough */
       switch (selection.kind) {
-        case ACTOR_CHANGE:
+        case 'ActorChange':
           // TODO: T89695151 Support multi-actor record sources in RelayReferenceMarker.js
           this._traverseLink(selection.linkedField, record);
           break;
-        case LINKED_FIELD:
+        case 'LinkedField':
           if (selection.plural) {
             this._traversePluralLink(selection, record);
           } else {
             this._traverseLink(selection, record);
           }
           break;
-        case CONDITION:
+        case 'Condition':
           const conditionValue = Boolean(
             this._getVariableValue(selection.condition),
           );
@@ -156,7 +136,7 @@ class RelayReferenceMarker {
             this._traverseSelections(selection.selections, record);
           }
           break;
-        case INLINE_FRAGMENT:
+        case 'InlineFragment':
           if (selection.abstractKey == null) {
             const typeName = RelayModernRecord.getType(record);
             if (
@@ -180,7 +160,7 @@ class RelayReferenceMarker {
             this._traverseSelections(selection.selections, record);
           }
           break;
-        case FRAGMENT_SPREAD:
+        case 'FragmentSpread':
           const prevVariables = this._variables;
           this._variables = getLocalVariables(
             this._variables,
@@ -190,7 +170,7 @@ class RelayReferenceMarker {
           this._traverseSelections(selection.fragment.selections, record);
           this._variables = prevVariables;
           break;
-        case LINKED_HANDLE:
+        case 'LinkedHandle':
           // The selections for a "handle" field are the same as those of the
           // original linked field where the handle was applied. Reference marking
           // therefore requires traversing the original field selections against
@@ -211,40 +191,39 @@ class RelayReferenceMarker {
             this._traverseLink(handleField, record);
           }
           break;
-        case DEFER:
-        case STREAM:
+        case 'Defer':
+        case 'Stream':
           this._traverseSelections(selection.selections, record);
           break;
-        case SCALAR_FIELD:
-        case SCALAR_HANDLE:
+        case 'ScalarField':
+        case 'ScalarHandle':
           break;
-        case TYPE_DISCRIMINATOR: {
+        case 'TypeDiscriminator': {
           const typeName = RelayModernRecord.getType(record);
           const typeID = generateTypeID(typeName);
           this._references.add(typeID);
           break;
         }
-        case MODULE_IMPORT:
+        case 'ModuleImport':
           this._traverseModuleImport(selection, record);
           break;
-        case CLIENT_EXTENSION:
+        case 'ClientExtension':
           this._traverseSelections(selection.selections, record);
           break;
-        case FLIGHT_FIELD:
-          if (RelayFeatureFlags.ENABLE_REACT_FLIGHT_COMPONENT_FIELD) {
-            this._traverseFlightField(selection, record);
-          } else {
-            throw new Error('Flight fields are not yet supported.');
-          }
-          break;
-        case CLIENT_COMPONENT:
+        case 'ClientComponent':
           if (this._shouldProcessClientComponents === false) {
             break;
           }
           this._traverseSelections(selection.fragment.selections, record);
           break;
-        case RELAY_RESOLVER:
+        case 'RelayResolver':
           this._traverseResolverField(selection, record);
+          break;
+        case 'RelayLiveResolver':
+          this._traverseResolverField(selection, record);
+          break;
+        case 'ClientEdgeToClientObject':
+          this._traverseClientEdgeToClientObject(selection, record);
           break;
         default:
           (selection: empty);
@@ -257,8 +236,63 @@ class RelayReferenceMarker {
     });
   }
 
-  _traverseResolverField(field: NormalizationResolverField, record: Record) {
-    const storageKey = getStorageKey(field, this._variables);
+  _traverseClientEdgeToClientObject(
+    field: NormalizationClientEdgeToClientObject,
+    record: Record,
+  ): void {
+    const dataID = this._traverseResolverField(field.backingField, record);
+    if (dataID == null) {
+      return;
+    }
+    const resolverRecord = this._recordSource.get(dataID);
+    if (resolverRecord == null) {
+      return;
+    }
+    if (field.backingField.isOutputType) {
+      // Mark all @outputType record IDs
+      const outputTypeRecordIDs = getOutputTypeRecordIDs(resolverRecord);
+      if (outputTypeRecordIDs != null) {
+        for (const dataID of outputTypeRecordIDs) {
+          this._references.add(dataID);
+        }
+      }
+    } else {
+      const {linkedField} = field;
+      const concreteType = linkedField.concreteType;
+      if (concreteType == null) {
+        // TODO: Handle retaining abstract client edges to client types.
+        return;
+      }
+      if (linkedField.plural) {
+        const dataIDs = RelayModernRecord.getResolverLinkedRecordIDs(
+          resolverRecord,
+          concreteType,
+        );
+
+        if (dataIDs != null) {
+          for (const dataID of dataIDs) {
+            if (dataID != null) {
+              this._traverse(linkedField, dataID);
+            }
+          }
+        }
+      } else {
+        const dataID = RelayModernRecord.getResolverLinkedRecordID(
+          resolverRecord,
+          concreteType,
+        );
+        if (dataID != null) {
+          this._traverse(linkedField, dataID);
+        }
+      }
+    }
+  }
+
+  _traverseResolverField(
+    field: NormalizationResolverField | NormalizationLiveResolverField,
+    record: Record,
+  ): ?DataID {
+    const storageKey = getReadTimeResolverStorageKey(field, this._variables);
     const dataID = RelayModernRecord.getLinkedRecordID(record, storageKey);
 
     // If the resolver value has been created, we should retain it.
@@ -266,17 +300,6 @@ class RelayReferenceMarker {
     // Resolver subscription.
     if (dataID != null) {
       this._references.add(dataID);
-
-      // Also mark all @outputType record IDs
-      const resolverRecord = this._recordSource.get(dataID);
-      if (resolverRecord != null) {
-        const outputTypeRecordIDs = getOutputTypeRecordIDs(resolverRecord);
-        if (outputTypeRecordIDs != null) {
-          for (const dataID of outputTypeRecordIDs) {
-            this._references.add(dataID);
-          }
-        }
-      }
     }
 
     const {fragment} = field;
@@ -284,6 +307,8 @@ class RelayReferenceMarker {
       // Mark the contents of the resolver's data dependencies.
       this._traverseSelections([fragment], record);
     }
+
+    return dataID;
   }
 
   _traverseModuleImport(
@@ -342,51 +367,6 @@ class RelayReferenceMarker {
         this._traverse(field, linkedID);
       }
     });
-  }
-
-  _traverseFlightField(field: NormalizationFlightField, record: Record): void {
-    const storageKey = getStorageKey(field, this._variables);
-    const linkedID = RelayModernRecord.getLinkedRecordID(record, storageKey);
-    if (linkedID == null) {
-      return;
-    }
-    this._references.add(linkedID);
-
-    const reactFlightClientResponseRecord = this._recordSource.get(linkedID);
-
-    if (reactFlightClientResponseRecord == null) {
-      return;
-    }
-
-    const reachableExecutableDefinitions = RelayModernRecord.getValue(
-      reactFlightClientResponseRecord,
-      RelayStoreReactFlightUtils.REACT_FLIGHT_EXECUTABLE_DEFINITIONS_STORAGE_KEY,
-    );
-
-    if (!Array.isArray(reachableExecutableDefinitions)) {
-      return;
-    }
-
-    const operationLoader = this._operationLoader;
-    invariant(
-      operationLoader !== null,
-      'DataChecker: Expected an operationLoader to be configured when using ' +
-        'React Flight',
-    );
-    // In Flight, the variables that are in scope for reachable executable
-    // definitions aren't the same as what's in scope for the outer query.
-    const prevVariables = this._variables;
-    // $FlowFixMe[incompatible-cast]
-    for (const definition of (reachableExecutableDefinitions: Array<ReactFlightReachableExecutableDefinitions>)) {
-      this._variables = definition.variables;
-      const operationReference = definition.module;
-      const normalizationRootNode = operationLoader.get(operationReference);
-      if (normalizationRootNode != null) {
-        const operation = getOperation(normalizationRootNode);
-        this._traverse(operation, ROOT_ID);
-      }
-    }
-    this._variables = prevVariables;
   }
 }
 

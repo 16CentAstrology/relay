@@ -14,10 +14,10 @@
 import type {
   FragmentType,
   HasUpdatableSpread,
+  MissingFieldHandler,
   RecordProxy,
   RecordSourceProxy,
   RecordSourceSelectorProxy,
-  MissingFieldHandler,
   SingularReaderSelector,
   UpdatableData,
 } from '../store/RelayStoreTypes';
@@ -32,9 +32,7 @@ import type RelayRecordSourceMutator from './RelayRecordSourceMutator';
 
 const {ROOT_TYPE, getStorageKey} = require('../store/RelayStoreUtils');
 const {readUpdatableFragment} = require('./readUpdatableFragment');
-const {
-  readUpdatableQuery_EXPERIMENTAL,
-} = require('./readUpdatableQuery_EXPERIMENTAL');
+const {readUpdatableQuery} = require('./readUpdatableQuery');
 const invariant = require('invariant');
 
 /**
@@ -134,23 +132,11 @@ class RelayRecordSourceSelectorProxy implements RecordSourceSelectorProxy {
     this.__recordSource.invalidateStore();
   }
 
-  readUpdatableQuery_EXPERIMENTAL<TVariables: Variables, TData>(
-    query: UpdatableQuery<TVariables, TData>,
-    variables: TVariables,
-  ): UpdatableData<TData> {
-    return readUpdatableQuery_EXPERIMENTAL(
-      query,
-      variables,
-      this,
-      this._missingFieldHandlers,
-    );
-  }
-
   readUpdatableQuery<TVariables: Variables, TData>(
     query: UpdatableQuery<TVariables, TData>,
     variables: TVariables,
   ): UpdatableData<TData> {
-    return readUpdatableQuery_EXPERIMENTAL(
+    return readUpdatableQuery(
       query,
       variables,
       this,

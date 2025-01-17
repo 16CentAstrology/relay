@@ -12,12 +12,11 @@
 'use strict';
 const {
   getFragmentResourceForEnvironment,
-} = require('react-relay/relay-hooks/FragmentResource');
+} = require('react-relay/relay-hooks/legacy/FragmentResource');
 const {
   getQueryResourceForEnvironment,
 } = require('react-relay/relay-hooks/QueryResource');
 const {
-  RelayFeatureFlags,
   __internal: {fetchQuery},
   getFragment,
 } = require('relay-runtime');
@@ -32,16 +31,6 @@ const {
 
 disallowWarnings();
 disallowConsoleErrors();
-
-beforeEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = true;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = true;
-});
-
-afterEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = false;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = false;
-});
 
 const FRAGMENT_1 = graphql`
   fragment QueryResourceClientEdgesTestUser1Fragment on User {
@@ -140,7 +129,7 @@ describe('QueryResource Client Edges behavior', () => {
       'componentDisplayName',
     );
     // $FlowFixMe[unclear-type] - read() doesn't have the nice types of reading a fragment through the actual APIs:
-    const {me} = (result.data: any);
+    const {me}: any = result.data;
     const clientEdgeFragmentRef = me.client_edge;
     expect(environment.mock.getAllOperations().length).toBe(0);
 

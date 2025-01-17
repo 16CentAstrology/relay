@@ -23,11 +23,12 @@ use schema::SDLSchema;
 use schema::Schema;
 use schema::Type;
 
+use crate::catch_directive::CATCH_DIRECTIVE_NAME;
 use crate::client_extensions::CLIENT_EXTENSION_DIRECTIVE_NAME;
 use crate::connections::ConnectionMetadataDirective;
+use crate::fragment_alias_directive::FRAGMENT_DANGEROUSLY_UNALIAS_DIRECTIVE_NAME;
 use crate::handle_fields::HANDLE_FIELD_DIRECTIVE_NAME;
 use crate::inline_data_fragment::InlineDirectiveMetadata;
-use crate::react_flight::REACT_FLIGHT_SCALAR_FLIGHT_FIELD_METADATA_KEY;
 use crate::refetchable_fragment::RefetchableMetadata;
 use crate::relay_actor_change::RELAY_ACTOR_CHANGE_DIRECTIVE_FOR_CODEGEN;
 use crate::required_directive::CHILDREN_CAN_BUBBLE_METADATA_KEY;
@@ -36,12 +37,9 @@ use crate::ClientEdgeGeneratedQueryMetadataDirective;
 use crate::ClientEdgeMetadataDirective;
 use crate::FragmentAliasMetadata;
 use crate::ModuleMetadata;
-use crate::ReactFlightLocalComponentsMetadata;
 use crate::RefetchableDerivedFromMetadata;
-use crate::RelayClientComponentMetadata;
 use crate::RelayResolverMetadata;
 use crate::RequiredMetadataDirective;
-use crate::CLIENT_EDGE_GENERATED_FRAGMENT_KEY;
 use crate::DIRECTIVE_SPLIT_OPERATION;
 use crate::INTERNAL_METADATA_DIRECTIVE;
 
@@ -88,7 +86,8 @@ pub fn extract_variable_name(argument: Option<&Argument>) -> Option<StringKey> {
 }
 
 lazy_static! {
-    static ref CUSTOM_METADATA_DIRECTIVES: [DirectiveName; 23] = [
+    static ref CUSTOM_METADATA_DIRECTIVES: [DirectiveName; 20] = [
+        *CATCH_DIRECTIVE_NAME,
         *CLIENT_EXTENSION_DIRECTIVE_NAME,
         ConnectionMetadataDirective::directive_name(),
         *HANDLE_FIELD_DIRECTIVE_NAME,
@@ -98,22 +97,19 @@ lazy_static! {
         RefetchableDerivedFromMetadata::directive_name(),
         *INTERNAL_METADATA_DIRECTIVE,
         *ARGUMENT_DEFINITION,
-        *REACT_FLIGHT_SCALAR_FLIGHT_FIELD_METADATA_KEY,
-        ReactFlightLocalComponentsMetadata::directive_name(),
         *REQUIRED_DIRECTIVE_NAME,
         RequiredMetadataDirective::directive_name(),
         ClientEdgeMetadataDirective::directive_name(),
         ClientEdgeGeneratedQueryMetadataDirective::directive_name(),
-        *CLIENT_EDGE_GENERATED_FRAGMENT_KEY,
         *CHILDREN_CAN_BUBBLE_METADATA_KEY,
         RelayResolverMetadata::directive_name(),
-        RelayClientComponentMetadata::directive_name(),
         *UNUSED_LOCAL_VARIABLE_DEPRECATED,
         *RELAY_ACTOR_CHANGE_DIRECTIVE_FOR_CODEGEN,
         ProvidedVariableMetadata::directive_name(),
         FragmentAliasMetadata::directive_name(),
     ];
-    static ref DIRECTIVES_SKIPPED_IN_NODE_IDENTIFIER: [DirectiveName; 11] = [
+    static ref DIRECTIVES_SKIPPED_IN_NODE_IDENTIFIER: [DirectiveName; 10] = [
+        *CATCH_DIRECTIVE_NAME,
         *CLIENT_EXTENSION_DIRECTIVE_NAME,
         ConnectionMetadataDirective::directive_name(),
         *HANDLE_FIELD_DIRECTIVE_NAME,
@@ -121,10 +117,8 @@ lazy_static! {
         RefetchableDerivedFromMetadata::directive_name(),
         *INTERNAL_METADATA_DIRECTIVE,
         *ARGUMENT_DEFINITION,
-        *REACT_FLIGHT_SCALAR_FLIGHT_FIELD_METADATA_KEY,
-        ReactFlightLocalComponentsMetadata::directive_name(),
         *REQUIRED_DIRECTIVE_NAME,
-        RelayClientComponentMetadata::directive_name(),
+        *FRAGMENT_DANGEROUSLY_UNALIAS_DIRECTIVE_NAME
     ];
     static ref RELAY_CUSTOM_INLINE_FRAGMENT_DIRECTIVES: [DirectiveName; 8] = [
         *CLIENT_EXTENSION_DIRECTIVE_NAME,
@@ -168,7 +162,7 @@ pub fn get_normalization_operation_name(name: StringKey) -> String {
     format!("{}$normalization", name)
 }
 
-pub fn get_fragment_filename(fragment_name: FragmentDefinitionName) -> StringKey {
+pub fn get_normalization_fragment_filename(fragment_name: FragmentDefinitionName) -> StringKey {
     format!(
         "{}.graphql",
         get_normalization_operation_name(fragment_name.0)

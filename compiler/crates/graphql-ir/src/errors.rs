@@ -10,6 +10,7 @@ use std::fmt::Display;
 use common::ArgumentName;
 use common::DiagnosticDisplay;
 use common::DirectiveName;
+use common::ScalarName;
 use common::WithDiagnosticData;
 use graphql_syntax::OperationKind;
 use intern::string_key::StringKey;
@@ -17,10 +18,29 @@ use intern::Lookup;
 use schema::suggestion_list::did_you_mean;
 use schema::Type;
 use schema::TypeReference;
+use serde::Deserialize;
 use thiserror::Error;
 
 use crate::ir::FragmentDefinitionName;
 use crate::VariableName;
+
+#[derive(
+    Debug,
+    Deserialize,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    strum::AsRefStr,
+    strum::Display,
+    strum::EnumString
+)]
+pub enum MachineMetadataKey {
+    UnknownType,
+    UnknownField,
+    ParentType,
+}
 
 struct ErrorLink(&'static str);
 
@@ -32,7 +52,18 @@ impl Display for ErrorLink {
 }
 
 /// Fixed set of validation errors with custom display messages
-#[derive(Clone, Debug, Error, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(
+    Clone,
+    Debug,
+    Error,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    serde::Serialize
+)]
+#[serde(tag = "type", content = "args")]
 pub enum ValidationMessage {
     #[error("Duplicate definitions for '{0}'")]
     DuplicateDefinition(StringKey),
@@ -94,6 +125,12 @@ pub enum ValidationMessage {
     )]
     VariableDefinitionsAndArgumentDirective,
 
+    #[error("Cannot combine fragment arguments syntax with the '@arguments' directive")]
+    FragmentArgumentsAndArgumentDirective,
+
+    #[error("Unexpected fragment argument. Fragment argument syntax is not enabled.")]
+    OutsidePassedArgumentsMode,
+
     #[error(
         "Expected `@argumentDefinitions` value to have a `type` field with a literal string value (e.g. `type: \"Int!\"`)"
     )]
@@ -115,9 +152,7 @@ pub enum ValidationMessage {
     #[error("Non-nullable variable '{variable_name}' has a default value.")]
     NonNullableVariableHasDefaultValue { variable_name: VariableName },
 
-    #[error(
-        "Variable was defined as type '{defined_type}' but used where a variable of type '{used_type}' is expected."
-    )]
+    #[error("Variable of type '{defined_type}' cannot be used where '{used_type}' is expected.")]
     InvalidVariableUsage {
         defined_type: String,
         used_type: String,
@@ -132,7 +167,10 @@ pub enum ValidationMessage {
     },
 
     #[error("Expected variable `${0}` to be defined on the operation")]
-    ExpectedOperationVariableToBeDefined(VariableName),
+    ExpectedOperationVariableToBeDefinedOnUnnamedQuery(VariableName),
+
+    #[error("Expected variable `${0}` to be defined on the operation '{1}'")]
+    ExpectedOperationVariableToBeDefined(VariableName, StringKey),
 
     #[error(
         "Expected argument definition to have an input type (scalar, enum, or input object), found type '{0}'"
@@ -161,8 +199,13 @@ pub enum ValidationMessage {
         type_condition: StringKey,
     },
 
-    #[error("Directive '{0}' not supported in this location")]
-    InvalidDirectiveUsageUnsupportedLocation(DirectiveName),
+    #[error(
+        "Directive '{directive_name}' not supported in this location. Supported location(s): {valid_locations}"
+    )]
+    InvalidDirectiveUsageUnsupportedLocation {
+        directive_name: DirectiveName,
+        valid_locations: String,
+    },
 
     #[error(
         "Invalid value passed to `@argumentDefinitions`, supported options include `type` and `defaultValue`, got `{0}`"
@@ -214,7 +257,7 @@ pub enum ValidationMessage {
     },
 
     #[error(
-        "Expected field '{connection_field_name}' to have a '{first_arg}' or '{last_arg}' argument."
+        "Expected field '{connection_field_name}' to be passed a '{first_arg}' or '{last_arg}' argument."
     )]
     ExpectedConnectionToHaveCountArgs {
         connection_field_name: StringKey,
@@ -222,7 +265,9 @@ pub enum ValidationMessage {
         last_arg: ArgumentName,
     },
 
-    #[error("Expected '{connection_field_name}' to have a '{edges_selection_name}' selection.")]
+    #[error(
+        "Expected '{connection_field_name}' to be passed a '{edges_selection_name}' selection."
+    )]
     ExpectedConnectionToHaveEdgesSelection {
         connection_field_name: StringKey,
         edges_selection_name: StringKey,
@@ -328,6 +373,16 @@ pub enum ValidationMessage {
         filters_arg_name: ArgumentName,
     },
 
+    #[error(
+        "Expected the `{filters_arg_name}` argument to `@{connection_directive_name}` to be a list of argument names to the connection field to use to identify the connection, got `{invalid_name}`. Not specifying `filters` is often recommended and will use all fields."
+    )]
+    InvalidConnectionFiltersArgNotAnArgument {
+        connection_directive_name: DirectiveName,
+        connection_field_name: StringKey,
+        filters_arg_name: ArgumentName,
+        invalid_name: StringKey,
+    },
+
     #[error("@stream_connection does not support aliasing the '{field_name}' field.")]
     UnsupportedAliasingInStreamConnection { field_name: StringKey },
 
@@ -420,6 +475,29 @@ pub enum ValidationMessage {
         deprecation_reason: Option<StringKey>,
     },
 
+    #[error("The argument `{argument_name}` of the field `{parent_name}.{field_name}` is deprecated.{}",
+    match deprecation_reason {
+        Some(reason) => format!(" Deprecation reason: \"{}\"", reason),
+        None => "".to_string()
+    })]
+    DeprecatedFieldArgument {
+        argument_name: ArgumentName,
+        parent_name: StringKey,
+        field_name: StringKey,
+        deprecation_reason: Option<StringKey>,
+    },
+
+    #[error("The argument `{argument_name}` of the directive `@{directive_name}` is deprecated.{}",
+    match deprecation_reason {
+        Some(reason) => format!(" Deprecation reason: \"{}\"", reason),
+        None => "".to_string()
+    })]
+    DeprecatedDirectiveArgument {
+        argument_name: ArgumentName,
+        directive_name: DirectiveName,
+        deprecation_reason: Option<StringKey>,
+    },
+
     #[error("Missing required {}: `{}`",
         if missing_arg_names.len() > 1 { "arguments" } else { "argument" },
         missing_arg_names
@@ -458,9 +536,59 @@ pub enum ValidationMessage {
 
     #[error("No fields can have an alias that start with two underscores.")]
     NoDoubleUnderscoreAlias,
+
+    #[error(
+        "Unexpected scalar literal `{literal_value}` provided in a position expecting custom scalar type `{scalar_type_name}`. This value should come from a variable."
+    )]
+    UnexpectedCustomScalarLiteral {
+        literal_value: String,
+        scalar_type_name: ScalarName,
+    },
+
+    #[error(
+        "Unexpected {literal_kind} literal provided in a position expecting custom scalar type `{scalar_type_name}`."
+    )]
+    UnexpectedNonScalarLiteralForCustomScalar {
+        literal_kind: String,
+        scalar_type_name: ScalarName,
+    },
+
+    #[error(
+        "Unexpected `@required(action: THROW)` directive in mutation response. The use of `@required(action: THROW)` is not supported in mutations."
+    )]
+    RequiredInMutation,
+
+    #[error(
+        "Unexpected `@RelayResolver` field referenced in mutation response. Relay Resolver fields may not be read as part of a mutation response."
+    )]
+    ResolverInMutation,
+
+    #[error("Expected the `as` argument of the @alias directive to be a static string.")]
+    FragmentAliasDirectiveDynamicNameArg,
+
+    #[error(
+        "Unexpected empty string supplied for `as` argument of the @alias directive. If provided, the `as` argument of the `@alias` directive must be a non-empty string literal."
+    )]
+    FragmentAliasIsEmptyString,
+
+    #[error(
+        "Missing required argument `as`. The `as` argument of the @alias directive is required on inline fragments without a type condition."
+    )]
+    FragmentAliasDirectiveMissingAs,
 }
 
-#[derive(Clone, Debug, Error, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(
+    Clone,
+    Debug,
+    Error,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    serde::Serialize
+)]
+#[serde(tag = "type")]
 pub enum ValidationMessageWithData {
     #[error("Unknown type '{type_name}'.{suggestions}", suggestions = did_you_mean(suggestions))]
     UnknownType {
@@ -494,6 +622,11 @@ pub enum ValidationMessageWithData {
         argument_name: StringKey,
         suggestions: Vec<StringKey>,
     },
+
+    #[error(
+        "The directive `@dangerously_unaliased_fixme` is unsafe and should be replaced with `@alias`."
+    )]
+    DeprecatedDangerouslyUnaliasedDirective,
 }
 
 impl WithDiagnosticData for ValidationMessageWithData {
@@ -508,6 +641,9 @@ impl WithDiagnosticData for ValidationMessageWithData {
                 .collect::<_>(),
             ValidationMessageWithData::ExpectedSelectionsOnObjectField { field_name, .. } => {
                 vec![Box::new(format!("{} {{ }}", field_name))]
+            }
+            ValidationMessageWithData::DeprecatedDangerouslyUnaliasedDirective => {
+                vec![Box::new("@alias".to_string())]
             }
         }
     }

@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<3b7c387af404142160b00221edc21148>>
+ * @generated SignedSource<<2b49a447d417455857952ac5becc6df9>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,21 +19,23 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserProfilePictureResolver$key } from "./../resolvers/__generated__/UserProfilePictureResolver.graphql";
-import {user_profile_picture_uri_with_scale as userUserProfilePictureUriWithScaleResolver} from "../resolvers/UserProfilePictureResolver.js";
-// Type assertion validating that `userUserProfilePictureUriWithScaleResolver` resolver is correctly implemented.
+import {user_profile_picture_uri_with_scale as userUserProfilePictureUriWithScaleResolverType} from "../resolvers/UserProfilePictureResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userUserProfilePictureUriWithScaleResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userUserProfilePictureUriWithScaleResolver: (
-  rootKey: UserProfilePictureResolver$key, 
+(userUserProfilePictureUriWithScaleResolverType: (
+  rootKey: UserProfilePictureResolver$key,
   args: {|
     scale: ?number,
-  |}, 
-) => mixed);
+  |},
+  context: TestResolverContextType,
+) => ?string);
 export type RelayReaderResolverTest21Query$variables = {|
   scale: number,
 |};
 export type RelayReaderResolverTest21Query$data = {|
   +me: ?{|
-    +profile_picture: ?$Call<<R>((...empty[]) => R) => R, typeof userUserProfilePictureUriWithScaleResolver>,
+    +profile_picture: ?string,
   |},
 |};
 export type RelayReaderResolverTest21Query = {|
@@ -74,7 +76,7 @@ return {
         "selections": [
           {
             "alias": "profile_picture",
-            "args": null,
+            "args": [],
             "fragment": {
               "args": (v1/*: any*/),
               "kind": "FragmentSpread",
@@ -135,7 +137,8 @@ return {
               "abstractKey": null
             },
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           {
             "alias": null,

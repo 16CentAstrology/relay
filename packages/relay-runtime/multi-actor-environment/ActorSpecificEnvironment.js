@@ -17,15 +17,15 @@ import type {INetwork} from '../network/RelayNetworkTypes';
 import type RelayObservable from '../network/RelayObservable';
 import type {
   ExecuteMutationConfig,
-  MissingFieldHandler,
   LogFunction,
+  MissingFieldHandler,
   MutationParameters,
   OperationAvailability,
   OperationDescriptor,
   OperationTracker,
   OptimisticResponseConfig,
   OptimisticUpdateFunction,
-  RequiredFieldLogger,
+  RelayFieldLogger,
   SelectorStoreUpdater,
   SingularReaderSelector,
   Snapshot,
@@ -54,7 +54,7 @@ export type ActorSpecificEnvironmentConfig = $ReadOnly<{
   logFn: LogFunction,
   multiActorEnvironment: IMultiActorEnvironment,
   network: INetwork,
-  requiredFieldLogger: RequiredFieldLogger,
+  relayFieldLogger: RelayFieldLogger,
   store: Store,
   missingFieldHandlers: $ReadOnlyArray<MissingFieldHandler>,
 }>;
@@ -70,7 +70,7 @@ class ActorSpecificEnvironment implements IActorEnvironment {
   +configName: ?string;
   +multiActorEnvironment: IMultiActorEnvironment;
   +options: mixed;
-  requiredFieldLogger: RequiredFieldLogger;
+  relayFieldLogger: RelayFieldLogger;
 
   constructor(config: ActorSpecificEnvironmentConfig) {
     this.configName = config.configName;
@@ -78,7 +78,7 @@ class ActorSpecificEnvironment implements IActorEnvironment {
     this.multiActorEnvironment = config.multiActorEnvironment;
 
     this.__log = config.logFn;
-    this.requiredFieldLogger = config.requiredFieldLogger;
+    this.relayFieldLogger = config.relayFieldLogger;
     this._operationTracker = new RelayOperationTracker();
     this._store = config.store;
     this._network = wrapNetworkWithLogObserver(this, config.network);

@@ -11,6 +11,7 @@
 
 'use strict';
 
+import type {RelayFieldLoggerEvent} from '../../store/RelayStoreTypes';
 import type {fetchQueryTest1Query$data} from './__generated__/fetchQueryTest1Query.graphql';
 import type {RequestParameters} from 'relay-runtime';
 
@@ -239,9 +240,9 @@ describe('fetchQuery', () => {
 
 describe('fetchQuery with missing @required value', () => {
   it('provides data snapshot on next', () => {
-    const requiredFieldLogger = jest.fn();
+    const relayFieldLogger = jest.fn<[RelayFieldLoggerEvent], void>();
     const environment = createMockEnvironment({
-      requiredFieldLogger,
+      relayFieldLogger,
     });
     const query = graphql`
       query fetchQueryTest2Query {
@@ -251,7 +252,7 @@ describe('fetchQuery with missing @required value', () => {
       }
     `;
 
-    const observer = {next: jest.fn()};
+    const observer = {next: jest.fn<[$FlowFixMe], mixed>()};
     const subscription = fetchQuery(environment, query, {}).subscribe(observer);
     expect(observer.next).not.toHaveBeenCalled();
     const queryNode = getRequest(query);
@@ -266,16 +267,16 @@ describe('fetchQuery with missing @required value', () => {
     });
     subscription.unsubscribe();
     expect(observer.next).toHaveBeenCalledWith({me: null});
-    expect(requiredFieldLogger).toHaveBeenCalledWith({
+    expect(relayFieldLogger).toHaveBeenCalledWith({
       fieldPath: 'me.name',
-      kind: 'missing_field.log',
+      kind: 'missing_required_field.log',
       owner: 'fetchQueryTest2Query',
     });
   });
 
   it('throws on resolution', () => {
-    const requiredFieldLogger = jest.fn();
-    const environment = createMockEnvironment({requiredFieldLogger});
+    const relayFieldLogger = jest.fn<[RelayFieldLoggerEvent], void>();
+    const environment = createMockEnvironment({relayFieldLogger});
     const query = graphql`
       query fetchQueryTest3Query {
         me {
@@ -284,7 +285,10 @@ describe('fetchQuery with missing @required value', () => {
       }
     `;
 
-    const observer = {next: jest.fn(), error: jest.fn()};
+    const observer = {
+      next: jest.fn<[$FlowFixMe], mixed>(),
+      error: jest.fn<[Error], mixed>(),
+    };
     const subscription = fetchQuery(environment, query, {}).subscribe(observer);
     const queryNode = getRequest(query);
 
@@ -295,10 +299,11 @@ describe('fetchQuery with missing @required value', () => {
       data: {me: {id: 'ID-1', name: null}},
     });
     subscription.unsubscribe();
-    expect(requiredFieldLogger).toHaveBeenCalledWith({
+    expect(relayFieldLogger).toHaveBeenCalledWith({
       fieldPath: 'me.name',
-      kind: 'missing_field.throw',
+      kind: 'missing_required_field.throw',
       owner: 'fetchQueryTest3Query',
+      handled: false,
     });
     expect(observer.error).toHaveBeenCalledWith(
       Error(
@@ -323,7 +328,10 @@ describe('fetchQuery with missing @required value', () => {
       }
     `;
 
-    const observer = {next: jest.fn(), error: jest.fn()};
+    const observer = {
+      next: jest.fn<[$FlowFixMe], mixed>(),
+      error: jest.fn<[Error], mixed>(),
+    };
     const subscription = fetchQuery(environment, query, {}).subscribe(observer);
     const queryNode = getRequest(query);
     environment.mock.nextValue(queryNode, {
@@ -353,7 +361,10 @@ test('client-only query with error', () => {
       client_root_field
     }
   `;
-  const observer = {next: jest.fn(), error: jest.fn()};
+  const observer = {
+    next: jest.fn<[empty], mixed>(),
+    error: jest.fn<[Error], mixed>(),
+  };
 
   // $FlowExpectedError[incompatible-call] - fetch query is expecting a fetchable query, `fetchQueryTest5Query` is client-only
   fetchQuery<{...}, empty, mixed>(environment, query, {}).subscribe(observer);

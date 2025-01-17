@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<52fbe10a46cc44f6f4a9ef85f007a155>>
+ * @generated SignedSource<<8575f7903ffc9f18712b2845ecd8afca>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,16 +19,19 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserShoutedGreetingResolver$key } from "./../resolvers/__generated__/UserShoutedGreetingResolver.graphql";
-import {shouted_greeting as userShoutedGreetingResolver} from "../resolvers/UserShoutedGreetingResolver.js";
-// Type assertion validating that `userShoutedGreetingResolver` resolver is correctly implemented.
+import {shouted_greeting as userShoutedGreetingResolverType} from "../resolvers/UserShoutedGreetingResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userShoutedGreetingResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userShoutedGreetingResolver: (
-  rootKey: UserShoutedGreetingResolver$key, 
-) => mixed);
+(userShoutedGreetingResolverType: (
+  rootKey: UserShoutedGreetingResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?string);
 export type RelayReaderResolverTest5Query$variables = {||};
 export type RelayReaderResolverTest5Query$data = {|
   +me: ?{|
-    +shouted_greeting: ?$Call<<R>((...empty[]) => R) => R, typeof userShoutedGreetingResolver>,
+    +shouted_greeting: ?string,
   |},
 |};
 export type RelayReaderResolverTest5Query = {|
@@ -110,14 +113,16 @@ var node/*: ConcreteRequest*/ = {
                     "abstractKey": null
                   },
                   "kind": "RelayResolver",
-                  "storageKey": null
+                  "storageKey": null,
+                  "isOutputType": true
                 }
               ],
               "type": "User",
               "abstractKey": null
             },
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           {
             "alias": null,

@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<c4a8cb8565bc683469ca7babc02d6731>>
+ * @generated SignedSource<<516c4f6c3ab7c89130c7970ce174b60f>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,17 +19,20 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserRequiredNameResolver$key } from "./../resolvers/__generated__/UserRequiredNameResolver.graphql";
-import {required_name as userRequiredNameResolver} from "../resolvers/UserRequiredNameResolver.js";
-// Type assertion validating that `userRequiredNameResolver` resolver is correctly implemented.
+import {required_name as userRequiredNameResolverType} from "../resolvers/UserRequiredNameResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userRequiredNameResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userRequiredNameResolver: (
-  rootKey: UserRequiredNameResolver$key, 
-) => mixed);
+(userRequiredNameResolverType: (
+  rootKey: UserRequiredNameResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?string);
 export type RelayReaderResolverTestRequiredWithParentQuery$variables = {||};
 export type RelayReaderResolverTestRequiredWithParentQuery$data = {|
   +me: ?{|
     +lastName: string,
-    +required_name: ?$Call<<R>((...empty[]) => R) => R, typeof userRequiredNameResolver>,
+    +required_name: ?string,
   |},
 |};
 export type RelayReaderResolverTestRequiredWithParentQuery = {|
@@ -77,8 +80,7 @@ return {
           {
             "kind": "RequiredField",
             "field": (v0/*: any*/),
-            "action": "LOG",
-            "path": "me.lastName"
+            "action": "LOG"
           }
         ],
         "storageKey": null
@@ -119,7 +121,8 @@ return {
               "abstractKey": null
             },
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           (v0/*: any*/),
           {

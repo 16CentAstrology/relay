@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<c70082f734c9cdc4a4c9af63097ea769>>
+ * @generated SignedSource<<ab1a5cb79b4338829458475f69fc0c59>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,20 +18,22 @@
 
 /*::
 import type { ClientRequest, ClientQuery } from 'relay-runtime';
-import type { LiveState } from "relay-runtime/store/experimental-live-resolvers/LiveResolverStore";
-import {counter_no_fragment_with_arg as queryCounterNoFragmentWithArgResolver} from "../../../relay-runtime/store/__tests__/resolvers/LiveCounterNoFragmentWithArg.js";
-// Type assertion validating that `queryCounterNoFragmentWithArgResolver` resolver is correctly implemented.
+import type { LiveState } from "relay-runtime";
+import {counter_no_fragment_with_arg as queryCounterNoFragmentWithArgResolverType} from "../../../relay-runtime/store/__tests__/resolvers/LiveCounterNoFragmentWithArg.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryCounterNoFragmentWithArgResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryCounterNoFragmentWithArgResolver: (
+(queryCounterNoFragmentWithArgResolverType: (
   args: {|
     prefix: string,
-  |}, 
-) => LiveState<any>);
+  |},
+  context: TestResolverContextType,
+) => LiveState<?string>);
 export type LiveResolversTest12Query$variables = {|
   prefix: string,
 |};
 export type LiveResolversTest12Query$data = {|
-  +counter_no_fragment_with_arg: ?$Call<$Call<<R>((...empty[]) => R) => R, typeof queryCounterNoFragmentWithArgResolver>["read"]>,
+  +counter_no_fragment_with_arg: ?string,
 |};
 export type LiveResolversTest12Query = {|
   response: LiveResolversTest12Query$data,
@@ -93,7 +95,8 @@ return {
             "args": (v1/*: any*/),
             "fragment": null,
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           }
         ]
       }

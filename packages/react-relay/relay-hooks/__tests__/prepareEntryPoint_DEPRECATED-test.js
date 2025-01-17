@@ -33,6 +33,7 @@ class FakeJSResource<T> {
     this._resource = resource;
 
     this.getModuleIfRequired = jest.fn(() => this._resource);
+    // $FlowFixMe[incompatible-type-arg]
     this.load = jest.fn(() => {
       return new Promise(resolve => {
         this._resolve = resolve;
@@ -81,12 +82,11 @@ test('it should preload entry point with queries', () => {
     {
       getEnvironment: () => env,
     },
+    // $FlowFixMe[incompatible-call]
     entryPoint,
     {id: 'my-id'},
   );
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
   expect(networkSpy).toBeCalledTimes(1);
 });
@@ -138,12 +138,11 @@ test('it should preload entry point with nested entry points', () => {
     {
       getEnvironment: () => env,
     },
+    // $FlowFixMe[incompatible-call] Added after improved typing of PreloadProps
     entryPoint,
     {id: 'my-id'},
   );
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
   expect(nestedEntryPoint.root.getModuleIfRequired).toBeCalledTimes(1);
   expect(nestedEntryPoint.root.load).toBeCalledTimes(1);
@@ -214,15 +213,14 @@ test('it should preload entry point with both queries and nested entry points', 
     {
       getEnvironment: () => env,
     },
+    // $FlowFixMe[incompatible-call] Added after improved typing of PreloadProps
     entryPoint,
     {id: 'my-id'},
   );
   expect(networkSpy).toBeCalledTimes(2);
   expect(nestedEntryPoint.root.getModuleIfRequired).toBeCalledTimes(1);
   expect(nestedEntryPoint.root.load).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
 });
 
@@ -263,6 +261,7 @@ test('with `getEnvironment` function', () => {
     {
       getEnvironment,
     },
+    // $FlowFixMe[incompatible-call]
     entryPoint,
     {id: 'my-id'},
   );

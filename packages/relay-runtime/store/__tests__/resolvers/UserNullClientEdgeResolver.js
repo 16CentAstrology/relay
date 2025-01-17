@@ -12,19 +12,18 @@
 'use strict';
 
 import type {UserNullClientEdgeResolver$key} from './__generated__/UserNullClientEdgeResolver.graphql';
-import type {DataID} from 'relay-runtime';
+import type {ConcreteClientEdgeResolverReturnType} from 'relay-runtime';
 
 const {graphql} = require('relay-runtime');
 const {readFragment} = require('relay-runtime/store/ResolverFragments');
 
 /**
- * @RelayResolver
- * @fieldName null_client_edge
+ * @RelayResolver User.null_client_edge: User
  * @rootFragment UserNullClientEdgeResolver
- * @onType User
- * @edgeTo User
  */
-function null_client_edge(rootKey: UserNullClientEdgeResolver$key): ?DataID {
+function null_client_edge(
+  rootKey: UserNullClientEdgeResolver$key,
+): ?ConcreteClientEdgeResolverReturnType<> {
   readFragment(
     graphql`
       fragment UserNullClientEdgeResolver on User {

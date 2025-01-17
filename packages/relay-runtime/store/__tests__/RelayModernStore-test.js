@@ -10,9 +10,8 @@
  */
 
 'use strict';
-
-import type {SelectorData} from 'relay-runtime/store/RelayStoreTypes';
 import type {Disposable} from '../../util/RelayRuntimeTypes';
+import type {Snapshot} from '../RelayStoreTypes';
 import type {
   RelayModernStoreTest2Fragment$data,
   RelayModernStoreTest2Fragment$fragmentType,
@@ -29,6 +28,7 @@ import type {
   RelayModernStoreTest6Fragment$data,
   RelayModernStoreTest6Fragment$fragmentType,
 } from './__generated__/RelayModernStoreTest6Fragment.graphql';
+import type {SelectorData} from 'relay-runtime/store/RelayStoreTypes';
 import type {LogEvent} from 'relay-runtime/store/RelayStoreTypes';
 import type {Fragment} from 'relay-runtime/util/RelayRuntimeTypes';
 
@@ -50,8 +50,11 @@ const {
 } = require('../RelayStoreUtils');
 const {
   createMockEnvironment,
+  injectPromisePolyfill__DEPRECATED,
   simpleClone,
 } = require('relay-test-utils-internal');
+
+injectPromisePolyfill__DEPRECATED();
 
 function assertIsDeeplyFrozen(value: ?{...} | ?$ReadOnlyArray<{...}>): void {
   if (!value) {
@@ -64,6 +67,7 @@ function assertIsDeeplyFrozen(value: ?{...} | ?$ReadOnlyArray<{...}>): void {
     value.forEach(item => assertIsDeeplyFrozen(item));
   } else if (typeof value === 'object' && value !== null) {
     for (const key in value) {
+      // $FlowFixMe[invalid-computed-prop]
       assertIsDeeplyFrozen(value[key]);
     }
   }
@@ -73,6 +77,7 @@ function cloneEventWithSets(event: LogEvent) {
   const nextEvent = {};
   for (const key in event) {
     if (event.hasOwnProperty(key)) {
+      // $FlowFixMe[invalid-computed-prop]
       const val = event[key];
       if (val instanceof Set) {
         // $FlowFixMe[prop-missing]
@@ -98,7 +103,9 @@ function cloneEventWithSets(event: LogEvent) {
     describe('constructor', () => {
       it('creates the root record upon store initialization', () => {
         const source = getRecordSourceImplementation({});
-        const store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        const store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+        });
         expect(store.getSource().get(ROOT_ID)).toEqual({
           __id: ROOT_ID,
           __typename: ROOT_TYPE,
@@ -140,7 +147,10 @@ function cloneEventWithSets(event: LogEvent) {
         };
         initialData = simpleClone(data);
         source = getRecordSourceImplementation(data);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+          queryCacheExpirationTime: 0,
+        });
         UserQuery = graphql`
           query RelayModernStoreTest1Query($id: ID!, $size: [Int]) {
             node(id: $id) {
@@ -247,7 +257,9 @@ function cloneEventWithSets(event: LogEvent) {
           },
         };
         source = getRecordSourceImplementation(data);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+        });
         UserFragment = graphql`
           fragment RelayModernStoreTest2Fragment on User {
             name
@@ -283,9 +295,8 @@ function cloneEventWithSets(event: LogEvent) {
             },
           },
           seenRecords: new Set(Object.keys(data)),
-          missingRequiredFields: null,
+          fieldErrors: null,
           missingLiveResolverFields: [],
-          relayResolverErrors: [],
           missingClientEdges: null,
           isMissingData: false,
         });
@@ -335,12 +346,10 @@ function cloneEventWithSets(event: LogEvent) {
             __id: '4',
             __fragments: {RelayModernStoreTest4Fragment: {}},
             __fragmentOwner: owner.request,
-            __isWithinUnmatchedTypeRefinement: false,
           },
           seenRecords: new Set(Object.keys(data)),
-          missingRequiredFields: null,
+          fieldErrors: null,
           missingLiveResolverFields: [],
-          relayResolverErrors: [],
           missingClientEdges: null,
           isMissingData: false,
         });
@@ -396,9 +405,8 @@ function cloneEventWithSets(event: LogEvent) {
             },
           },
           seenRecords: new Set(['client:2', '4']),
-          missingRequiredFields: null,
+          fieldErrors: null,
           missingLiveResolverFields: [],
-          relayResolverErrors: [],
           missingClientEdges: null,
           isMissingData: false,
         });
@@ -447,6 +455,7 @@ function cloneEventWithSets(event: LogEvent) {
         >);
         source = getRecordSourceImplementation(data);
         store = new RelayModernStore(source, {
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
           log: event => {
             logEvents.push(cloneEventWithSets(event));
           },
@@ -481,7 +490,7 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         store.subscribe(snapshot, callback);
         // Publish a change to profilePicture.uri
         const nextSource = getRecordSourceImplementation({
@@ -535,7 +544,7 @@ function cloneEventWithSets(event: LogEvent) {
         const snapshot = store.lookup(selector);
         expect(snapshot.selector).toBe(selector);
 
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         store.subscribe(snapshot, callback);
         // Publish a change to profilePicture.uri
         const nextSource = getRecordSourceImplementation({
@@ -571,7 +580,7 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         store.subscribe(snapshot, callback);
         // Publish a change to profilePicture.uri
         const nextSource = getRecordSourceImplementation({
@@ -599,7 +608,7 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         store.subscribe(snapshot, callback);
         // Publish a change to profilePicture.uri
         let nextSource = getRecordSourceImplementation({
@@ -653,7 +662,10 @@ function cloneEventWithSets(event: LogEvent) {
           },
         };
         source = getRecordSourceImplementation(dataObj);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
+        });
         const owner = createOperationDescriptor(UserQuery, {});
         const selector = createReaderSelector(
           UserFragment,
@@ -664,7 +676,7 @@ function cloneEventWithSets(event: LogEvent) {
         const snapshot = store.lookup(selector);
         expect(snapshot.isMissingData).toEqual(true);
 
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         // Record does not exist when subscribed
         store.subscribe(snapshot, callback);
         const nextSource = getRecordSourceImplementation({
@@ -679,9 +691,9 @@ function cloneEventWithSets(event: LogEvent) {
         expect(callback.mock.calls.length).toBe(1);
         expect(callback.mock.calls[0][0]).toEqual({
           ...snapshot,
-          missingRequiredFields: null,
           missingClientEdges: null,
           isMissingData: false,
+          fieldErrors: null,
           data: {
             name: 'Zuck',
             profilePicture: {
@@ -704,7 +716,7 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         // Record does not exist when subscribed
         store.subscribe(snapshot, callback);
         const nextSource = getRecordSourceImplementation({
@@ -723,7 +735,18 @@ function cloneEventWithSets(event: LogEvent) {
             name: 'Joe',
             profilePicture: undefined,
           },
-          missingRequiredFields: null,
+          fieldErrors: [
+            {
+              owner: 'RelayModernStoreTest5Fragment',
+              kind: 'missing_expected_data.log',
+              fieldPath: 'profilePicture',
+            },
+            {
+              owner: 'RelayModernStoreTest5Fragment',
+              kind: 'missing_expected_data.log',
+              fieldPath: 'emailAddresses',
+            },
+          ],
           missingLiveResolverFields: [],
           missingClientEdges: null,
           isMissingData: true,
@@ -744,7 +767,7 @@ function cloneEventWithSets(event: LogEvent) {
         // Initially delete the record
         source.delete('842472');
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         // Record does not exist when subscribed
         store.subscribe(snapshot, callback);
         // Create it again
@@ -764,9 +787,20 @@ function cloneEventWithSets(event: LogEvent) {
             name: 'Joe',
             profilePicture: undefined,
           },
-          missingRequiredFields: null,
           missingClientEdges: null,
           isMissingData: true,
+          fieldErrors: [
+            {
+              owner: 'RelayModernStoreTest5Fragment',
+              kind: 'missing_expected_data.log',
+              fieldPath: 'profilePicture',
+            },
+            {
+              owner: 'RelayModernStoreTest5Fragment',
+              kind: 'missing_expected_data.log',
+              fieldPath: 'emailAddresses',
+            },
+          ],
           seenRecords: new Set(['842472']),
         });
       });
@@ -781,7 +815,7 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         store.subscribe(snapshot, callback);
         // Publish a change to profilePicture.uri
         const nextSource = getRecordSourceImplementation({
@@ -806,7 +840,7 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         const {dispose} = store.subscribe(snapshot, callback);
         // Publish a change to profilePicture.uri
@@ -880,7 +914,7 @@ function cloneEventWithSets(event: LogEvent) {
             owner.request,
           );
           const snapshot = store.lookup(selector);
-          const callback = jest.fn();
+          const callback = jest.fn<[Snapshot], void>();
           store.subscribe(snapshot, callback);
           // Publish a change to profilePicture.uri
           const nextSource = getRecordSourceImplementation({
@@ -914,7 +948,7 @@ function cloneEventWithSets(event: LogEvent) {
             owner.request,
           );
           const snapshot = store.lookup(selector);
-          const callback = jest.fn();
+          const callback = jest.fn<[Snapshot], void>();
           store.subscribe(snapshot, callback);
           // Publish a change to profilePicture.uri
           const nextSource = getRecordSourceImplementation({
@@ -934,7 +968,9 @@ function cloneEventWithSets(event: LogEvent) {
           if (!record) {
             throw new Error('Expected to find record with id client:1');
           }
-          expect(record[INVALIDATED_AT_KEY]).toEqual(1);
+          expect(
+            RelayModernRecord.getValue(record, INVALIDATED_AT_KEY),
+          ).toEqual(1);
           expect(store.check(owner)).toEqual({status: 'stale'});
         });
 
@@ -950,7 +986,7 @@ function cloneEventWithSets(event: LogEvent) {
             owner.request,
           );
           const snapshot = store.lookup(selector);
-          const callback = jest.fn();
+          const callback = jest.fn<[Snapshot], void>();
           store.subscribe(snapshot, callback);
           // Publish a change to profilePicture.uri
           const nextSource = getRecordSourceImplementation({
@@ -970,7 +1006,9 @@ function cloneEventWithSets(event: LogEvent) {
           if (!record) {
             throw new Error('Expected to find record with id "4"');
           }
-          expect(record[INVALIDATED_AT_KEY]).toEqual(1);
+          expect(
+            RelayModernRecord.getValue(record, INVALIDATED_AT_KEY),
+          ).toEqual(1);
           expect(store.check(owner)).toEqual({status: 'stale'});
         });
       });
@@ -984,7 +1022,12 @@ function cloneEventWithSets(event: LogEvent) {
           owner.request,
         );
         const snapshot = store.lookup(selector);
-        const callback = jest.fn(nextSnapshot => {
+        expect(logEvents).toMatchObject([
+          {name: 'store.lookup.start'},
+          {name: 'store.lookup.end'},
+        ]);
+        logEvents.length = 0;
+        const callback = jest.fn((nextSnapshot: Snapshot) => {
           logEvents.push({
             kind: 'test_only_callback',
             data: nextSnapshot.data,
@@ -1024,6 +1067,8 @@ function cloneEventWithSets(event: LogEvent) {
             name: 'store.notify.complete',
             updatedRecordIDs: new Set(['client:1']),
             invalidatedRecordIDs: new Set(),
+            updatedOwners: [owner.request],
+            subscriptionsSize: 1,
           },
         ]);
         expect(callback).toBeCalledTimes(1);
@@ -1047,7 +1092,12 @@ function cloneEventWithSets(event: LogEvent) {
             owner.request,
           );
           const snapshot = store.lookup(selector);
-          const callback = jest.fn(nextSnapshot => {
+          expect(logEvents).toMatchObject([
+            {name: 'store.lookup.start'},
+            {name: 'store.lookup.end'},
+          ]);
+          logEvents.length = 0;
+          const callback = jest.fn((nextSnapshot: Snapshot) => {
             logEvents.push({
               kind: 'test_only_callback',
               data: nextSnapshot.data,
@@ -1109,6 +1159,8 @@ function cloneEventWithSets(event: LogEvent) {
               sourceOperation: owner,
               updatedRecordIDs: new Set(['client:1']),
               invalidatedRecordIDs: new Set(),
+              updatedOwners: [owner.request],
+              subscriptionsSize: 1,
             },
           ]);
           expect(callback).toBeCalledTimes(1);
@@ -1143,7 +1195,10 @@ function cloneEventWithSets(event: LogEvent) {
           },
         };
         source = getRecordSourceImplementation(data);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
+        });
         UserQuery = graphql`
           query RelayModernStoreTest6Query($id: ID!, $size: [Int]) {
             node(id: $id) {
@@ -1201,7 +1256,10 @@ function cloneEventWithSets(event: LogEvent) {
         // $FlowFixMe[incompatible-type] found deploying v0.109.0
         delete data['client:1']; // profile picture
         source = getRecordSourceImplementation(data);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
+        });
         const operation = createOperationDescriptor(UserQuery, {
           id: '4',
           size: 32,
@@ -1224,6 +1282,7 @@ function cloneEventWithSets(event: LogEvent) {
           jest.spyOn(global.Date, 'now').mockImplementation(() => currentTime);
 
           store = new RelayModernStore(source, {
+            shouldRetainWithinTTL_EXPERIMENTAL: true,
             queryCacheExpirationTime: QUERY_CACHE_EXPIRATION_TIME,
             gcReleaseBufferSize: 0,
           });
@@ -1246,6 +1305,39 @@ function cloneEventWithSets(event: LogEvent) {
           currentTime += 1;
           expect(store.check(operation)).toEqual({
             status: 'stale',
+          });
+        });
+      });
+
+      describe('with infinite queryCacheExpirationTime', () => {
+        it('always returns available', () => {
+          let currentTime = Date.now();
+          jest.spyOn(global.Date, 'now').mockImplementation(() => currentTime);
+
+          store = new RelayModernStore(source, {
+            shouldRetainWithinTTL_EXPERIMENTAL: true,
+            queryCacheExpirationTime: null,
+            gcReleaseBufferSize: 0,
+          });
+          const operation = createOperationDescriptor(UserQuery, {
+            id: '4',
+            size: 32,
+          });
+          store.retain(operation);
+          store.publish(source);
+          store.notify(operation);
+
+          expect(store.check(operation)).toEqual({
+            status: 'available',
+            fetchTime: currentTime,
+          });
+
+          const fetchTime = currentTime;
+          currentTime += 10000; // arbitrary number
+
+          expect(store.check(operation)).toEqual({
+            status: 'available',
+            fetchTime,
           });
         });
       });
@@ -1342,6 +1434,7 @@ function cloneEventWithSets(event: LogEvent) {
 
           it('returns available if data is cached and store was invalidated before query was written (query not retained)', () => {
             store = new RelayModernStore(source, {
+              shouldRetainWithinTTL_EXPERIMENTAL: true,
               gcReleaseBufferSize: 1,
             });
             environment = createMockEnvironment({store});
@@ -1599,7 +1692,10 @@ function cloneEventWithSets(event: LogEvent) {
           },
         };
         source = getRecordSourceImplementation(data);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
+        });
         environment = createMockEnvironment({store});
       });
 
@@ -1757,7 +1853,7 @@ function cloneEventWithSets(event: LogEvent) {
         const dataIDs = ['4', 'client:1'];
 
         beforeEach(() => {
-          callback = jest.fn();
+          callback = jest.fn<[], void>();
         });
 
         it('notifies when invalidation state changes due to global invalidation', () => {
@@ -2029,6 +2125,7 @@ function cloneEventWithSets(event: LogEvent) {
         initialData = simpleClone(data);
         source = getRecordSourceImplementation(data);
         store = new RelayModernStore(source, {
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
           gcReleaseBufferSize: 1,
           queryCacheExpirationTime: QUERY_CACHE_EXPIRATION_TIME,
         });
@@ -2132,6 +2229,9 @@ function cloneEventWithSets(event: LogEvent) {
       });
 
       it('releases the operation and collects data after release buffer reaches capacity', () => {
+        let fetchTime = Date.now();
+        jest.spyOn(global.Date, 'now').mockImplementation(() => fetchTime);
+
         const disposable = store.retain(
           createOperationDescriptor(UserQuery, {id: '4', size: 32}),
         );
@@ -2154,6 +2254,10 @@ function cloneEventWithSets(event: LogEvent) {
         // Releasing second operation should cause release buffer to
         // go over capacity
         disposable2.dispose();
+
+        // TTL for all operations has passed
+        fetchTime += QUERY_CACHE_EXPIRATION_TIME;
+
         jest.runAllTimers();
         // Assert that the data for the first operation is collected, while
         // data for second operation is still retained via the release buffer
@@ -2179,6 +2283,9 @@ function cloneEventWithSets(event: LogEvent) {
       });
 
       it('when same operation retained multiple times, data is only collected until fully released from buffer', () => {
+        let fetchTime = Date.now();
+        jest.spyOn(global.Date, 'now').mockImplementation(() => fetchTime);
+
         const disposable = store.retain(
           createOperationDescriptor(UserQuery, {id: '4', size: 32}),
         );
@@ -2214,6 +2321,10 @@ function cloneEventWithSets(event: LogEvent) {
         // Releasing different operation should cause release buffer to
         // go over capacity
         disposable3.dispose();
+
+        // TTL for all operations has passed
+        fetchTime += QUERY_CACHE_EXPIRATION_TIME;
+
         jest.runAllTimers();
         // Assert that the data for the first operation is collected, while
         // data for secont operation is still retained via the release buffer
@@ -2241,7 +2352,10 @@ function cloneEventWithSets(event: LogEvent) {
       it('does not free data if previously disposed query is retained again', () => {
         // Disposing and re-retaining an operation should cause that query to *not* count
         // toward the release buffer capacity.
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 2});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 2,
+          shouldRetainWithinTTL_EXPERIMENTAL: true,
+        });
         const operation1 = createOperationDescriptor(UserQuery, {
           id: '1',
           size: 32,
@@ -2299,6 +2413,7 @@ function cloneEventWithSets(event: LogEvent) {
       function runNextScheduledJob() {
         const job = schedulerQueue.shift();
         expect(job).toBeDefined();
+        // $FlowFixMe[not-a-function]
         job();
       }
 
@@ -2321,6 +2436,7 @@ function cloneEventWithSets(event: LogEvent) {
           [ROOT_ID]: {
             __id: ROOT_ID,
             __typename: ROOT_TYPE,
+            // $FlowFixMe[invalid-computed-prop]
             [`node(id:"${nodeID}")`]: {__ref: nodeID},
           },
         });
@@ -2336,6 +2452,7 @@ function cloneEventWithSets(event: LogEvent) {
         store = new RelayModernStore(source, {
           gcScheduler: mockScheduler,
           gcReleaseBufferSize: 0,
+          queryCacheExpirationTime: 0,
         });
       });
 
@@ -2471,7 +2588,10 @@ function cloneEventWithSets(event: LogEvent) {
         };
         initialData = simpleClone(data);
         source = getRecordSourceImplementation(data);
-        store = new RelayModernStore(source, {gcReleaseBufferSize: 0});
+        store = new RelayModernStore(source, {
+          gcReleaseBufferSize: 0,
+          queryCacheExpirationTime: 0,
+        });
         UserQuery = graphql`
           query RelayModernStoreTest9Query($id: ID!, $size: [Int]) {
             node(id: $id) {

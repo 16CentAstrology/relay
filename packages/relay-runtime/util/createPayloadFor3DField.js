@@ -11,8 +11,8 @@
 
 'use strict';
 
-import type {JSResourceReference} from 'JSResourceReference';
 import type {NormalizationSplitOperation} from './NormalizationNode';
+import type {JSResourceReference} from 'JSResourceReference';
 
 const {
   getModuleComponentKey,
@@ -25,6 +25,7 @@ export opaque type Local3DPayload<
   +Response: {...},
 > = Response;
 
+// $FlowFixMe[unsupported-variance-annotation]
 function createPayloadFor3DField<+DocumentName: string, +Response: {...}>(
   name: DocumentName,
   operation: JSResourceReference<NormalizationSplitOperation>,

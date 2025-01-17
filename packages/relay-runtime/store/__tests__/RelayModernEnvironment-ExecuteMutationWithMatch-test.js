@@ -10,8 +10,9 @@
  */
 
 'use strict';
-
+import type {GraphQLResponse} from '../../network/RelayNetworkTypes';
 import type {NormalizationRootNode} from '../../util/NormalizationNode';
+import type {Snapshot} from '../RelayStoreTypes';
 import type {
   HandleFieldPayload,
   RecordSourceProxy,
@@ -40,8 +41,12 @@ const {
 const RelayModernStore = require('../RelayModernStore');
 const RelayRecordSource = require('../RelayRecordSource');
 const nullthrows = require('nullthrows');
-const {disallowWarnings} = require('relay-test-utils-internal');
+const {
+  disallowWarnings,
+  injectPromisePolyfill__DEPRECATED,
+} = require('relay-test-utils-internal');
 
+injectPromisePolyfill__DEPRECATED();
 disallowWarnings();
 
 const commentID = '1';
@@ -171,9 +176,9 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           },
         };
 
-        complete = jest.fn();
-        error = jest.fn();
-        next = jest.fn();
+        complete = jest.fn<[], mixed>();
+        error = jest.fn<[Error], mixed>();
+        next = jest.fn<[GraphQLResponse], mixed>();
         callbacks = {complete, error, next};
         fetch = (
           _query: RequestParameters,
@@ -181,7 +186,6 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           _cacheConfig: CacheConfig,
         ) => {
           // $FlowFixMe[missing-local-annot] Error found while enabling LTI on this file
-          // $FlowFixMe[underconstrained-implicit-instantiation]
           return RelayObservable.create(sink => {
             dataSource = sink;
           });
@@ -230,10 +234,10 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const fragmentSnapshot = environment.lookup(selector);
-        fragmentCallback = jest.fn();
+        fragmentCallback = jest.fn<[Snapshot], void>();
         environment.subscribe(fragmentSnapshot, fragmentCallback);
         const operationSnapshot = environment.lookup(operation.fragment);
-        operationCallback = jest.fn();
+        operationCallback = jest.fn<[Snapshot], void>();
         environment.subscribe(operationSnapshot, operationCallback);
       });
 
@@ -312,14 +316,13 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
               actor: {
                 name: 'actor-name',
                 nameRenderer: {
-                  __id: 'client:4:nameRenderer(supported:["PlainUserNameRenderer","MarkdownUserNameRenderer"])',
+                  __id: 'client:4:nameRenderer(supported:"34hjiS")',
                   __fragmentPropName: 'name',
                   __fragments: {
                     RelayModernEnvironmentExecuteMutationWithMatchTestMarkdownUserNameRenderer_name:
                       {},
                   },
                   __fragmentOwner: operation.request,
-                  __isWithinUnmatchedTypeRefinement: false,
                   __module_component: 'MarkdownUserNameRenderer.react',
                 },
               },
@@ -414,7 +417,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         );
         const initialMatchSnapshot = environment.lookup(matchSelector);
         expect(initialMatchSnapshot.isMissingData).toBe(true);
-        const matchCallback = jest.fn();
+        const matchCallback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialMatchSnapshot, matchCallback);
 
         resolveFragment(markdownRendererNormalizationFragment);
@@ -616,14 +619,13 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
                 actor: {
                   name: 'optimistic-actor-name',
                   nameRenderer: {
-                    __id: 'client:4:nameRenderer(supported:["PlainUserNameRenderer","MarkdownUserNameRenderer"])',
+                    __id: 'client:4:nameRenderer(supported:"34hjiS")',
                     __fragmentPropName: 'name',
                     __fragments: {
                       RelayModernEnvironmentExecuteMutationWithMatchTestMarkdownUserNameRenderer_name:
                         {},
                     },
                     __fragmentOwner: operation.request,
-                    __isWithinUnmatchedTypeRefinement: false,
                     __module_component: 'MarkdownUserNameRenderer.react',
                   },
                 },
@@ -654,9 +656,9 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         it('optimistically creates @match fields and loads resources', () => {
           operationLoader.load.mockImplementationOnce(() => {
             return new Promise(resolve => {
-              setImmediate(() => {
+              setTimeout(() => {
                 resolve(markdownRendererNormalizationFragment);
-              });
+              }, 0);
             });
           });
           environment
@@ -676,14 +678,13 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
                 actor: {
                   name: 'optimistic-actor-name',
                   nameRenderer: {
-                    __id: 'client:4:nameRenderer(supported:["PlainUserNameRenderer","MarkdownUserNameRenderer"])',
+                    __id: 'client:4:nameRenderer(supported:"34hjiS")',
                     __fragmentPropName: 'name',
                     __fragments: {
                       RelayModernEnvironmentExecuteMutationWithMatchTestMarkdownUserNameRenderer_name:
                         {},
                     },
                     __fragmentOwner: operation.request,
-                    __isWithinUnmatchedTypeRefinement: false,
                     __module_component: 'MarkdownUserNameRenderer.react',
                   },
                 },
@@ -765,14 +766,13 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
                 actor: {
                   name: 'actor-name',
                   nameRenderer: {
-                    __id: 'client:4:nameRenderer(supported:["PlainUserNameRenderer","MarkdownUserNameRenderer"])',
+                    __id: 'client:4:nameRenderer(supported:"34hjiS")',
                     __fragmentPropName: 'name',
                     __fragments: {
                       RelayModernEnvironmentExecuteMutationWithMatchTestMarkdownUserNameRenderer_name:
                         {},
                     },
                     __fragmentOwner: operation.request,
-                    __isWithinUnmatchedTypeRefinement: false,
                     __module_component: 'MarkdownUserNameRenderer.react',
                   },
                 },

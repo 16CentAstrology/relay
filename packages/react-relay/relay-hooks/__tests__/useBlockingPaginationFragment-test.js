@@ -13,7 +13,7 @@
 
 import type {Direction, OperationDescriptor, Variables} from 'relay-runtime';
 
-const useBlockingPaginationFragmentOriginal = require('../useBlockingPaginationFragment');
+const useBlockingPaginationFragmentOriginal = require('../legacy/useBlockingPaginationFragment');
 const invariant = require('invariant');
 const React = require('react');
 const ReactRelayContext = require('react-relay/ReactRelayContext');
@@ -28,13 +28,17 @@ const {
   graphql,
 } = require('relay-runtime');
 const {createMockEnvironment} = require('relay-test-utils');
+const Scheduler = require('scheduler');
+
 const {
   disallowWarnings,
   expectWarningWillFire,
-} = require('relay-test-utils-internal');
-const Scheduler = require('scheduler');
+  injectPromisePolyfill__DEPRECATED,
+} = (jest.requireActual('relay-test-utils-internal'): $FlowFixMe);
 
 const {useMemo, useState} = React;
+
+injectPromisePolyfill__DEPRECATED();
 
 disallowWarnings();
 
@@ -71,10 +75,10 @@ describe('useBlockingPaginationFragment', () => {
       this.setState({error});
     }
     render(): any | React.Node {
-      const {children, fallback} = this.props;
+      const {children, fallback: Fallback} = this.props;
       const {error} = this.state;
       if (error) {
-        return React.createElement(fallback, {error});
+        return <Fallback error={error} />;
       }
       return children;
     }
@@ -85,10 +89,9 @@ describe('useBlockingPaginationFragment', () => {
     fragmentRef: mixed,
   ) {
     // $FlowFixMe[incompatible-call]
-    const {data, ...result} = useBlockingPaginationFragmentOriginal<any, mixed>(
+    const {data, ...result} = useBlockingPaginationFragmentOriginal(
       fragmentNode,
       // $FlowFixMe[incompatible-call]
-      // $FlowFixMe[prop-missing]
       fragmentRef,
     );
     loadNext = result.loadNext;
@@ -136,13 +139,14 @@ describe('useBlockingPaginationFragment', () => {
         [fragmentName]: {},
       },
       [FRAGMENT_OWNER_KEY]: owner.request,
-      __isWithinUnmatchedTypeRefinement: false,
     };
   }
 
   beforeEach(() => {
     // Set up mocks
-    renderSpy = jest.fn();
+    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
+     * enabling Flow LTI mode */
+    renderSpy = jest.fn<_, mixed>();
 
     // Set up environment and base data
     environment = createMockEnvironment({
@@ -717,7 +721,7 @@ describe('useBlockingPaginationFragment', () => {
     let release;
 
     beforeEach(() => {
-      release = jest.fn();
+      release = jest.fn<$ReadOnlyArray<mixed>, mixed>();
       // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockImplementation((...args) => {
         return {
@@ -816,7 +820,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('does not load more if request is already in flight', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -862,7 +866,7 @@ describe('useBlockingPaginationFragment', () => {
       it('does not load more if parent query is already active (i.e. during streaming)', () => {
         fetchQuery(environment, query).subscribe({});
 
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.execute.mockClear();
         renderFragment();
@@ -885,7 +889,7 @@ describe('useBlockingPaginationFragment', () => {
 
       describe('cancellation', () => {
         it('cancels load more if component unmounts', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -938,7 +942,7 @@ describe('useBlockingPaginationFragment', () => {
         });
 
         it('cancels load more if refetch is called', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -1020,7 +1024,7 @@ describe('useBlockingPaginationFragment', () => {
             },
           },
         });
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
 
         const renderer = renderFragment();
         const expectedUser = {
@@ -1091,7 +1095,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('loads and renders next items in connection', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -1213,7 +1217,7 @@ describe('useBlockingPaginationFragment', () => {
           },
         };
 
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment({owner: queryWithLiteralArgs});
         expectFragmentResults([
           {
@@ -1320,7 +1324,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('correctly loads and renders next items when paginating multiple times', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -1526,7 +1530,7 @@ describe('useBlockingPaginationFragment', () => {
       // TODO(T64875643): Re-enable after next React sync to fbsource
       // eslint-disable-next-line jest/no-disabled-tests
       it.skip('does not suspend if pagination update is interruped before it commits (unsuspends)', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment({isConcurrent: true});
         expectFragmentResults([
           {
@@ -1658,7 +1662,7 @@ describe('useBlockingPaginationFragment', () => {
           jest.requireActual<any>('../useLoadMoreFunction')(...args),
         );
 
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -1712,7 +1716,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('renders with latest updated data from any updates missed while suspended for pagination', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -1832,7 +1836,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('correctly updates when fragment data changes after pagination', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -2013,7 +2017,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('(currently) reset the pagination to the initial state (even after a successful `loadNext`) in cases when a payload with missing data for the connection is published to the store.', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -2150,7 +2154,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('loads more correctly when original variables do not include an id', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const viewer = environment.lookup(queryWithoutID.fragment).data?.viewer;
         const userRef =
           typeof viewer === 'object' && viewer != null ? viewer?.actor : null;
@@ -2277,7 +2281,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('loads more with correct id from refetchable fragment when using a nested fragment', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
 
         // Populate store with data for query using nested fragment
         environment.commitPayload(queryNestedFragment, {
@@ -2444,7 +2448,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('calls callback with error when error occurs during fetch', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -2491,11 +2495,10 @@ describe('useBlockingPaginationFragment', () => {
         // the component twice: `expectFragmentResults` will fail in the next
         // test
         jest.resetModules();
-        disallowWarnings();
       });
 
       it('preserves pagination request if re-rendered with same fragment ref', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -2615,7 +2618,7 @@ describe('useBlockingPaginationFragment', () => {
 
       describe('extra variables', () => {
         it('loads and renders the next items in the connection when passing extra variables', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -2724,7 +2727,7 @@ describe('useBlockingPaginationFragment', () => {
         });
 
         it('loads the next items in the connection and ignores any pagination vars passed as extra vars', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -2842,7 +2845,7 @@ describe('useBlockingPaginationFragment', () => {
 
       describe('disposing', () => {
         it('disposes ongoing request if environment changes', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -2949,7 +2952,7 @@ describe('useBlockingPaginationFragment', () => {
         });
 
         it('disposes ongoing request if fragment ref changes', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -3067,7 +3070,7 @@ describe('useBlockingPaginationFragment', () => {
         });
 
         it('disposes ongoing request on unmount', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -3124,7 +3127,7 @@ describe('useBlockingPaginationFragment', () => {
         });
 
         it('disposes ongoing request if it is manually disposed', () => {
-          const callback = jest.fn();
+          const callback = jest.fn<[Error | null], void>();
           const renderer = renderFragment();
           expectFragmentResults([
             {
@@ -3515,7 +3518,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('updates after pagination if more results are available', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {
@@ -3621,7 +3624,7 @@ describe('useBlockingPaginationFragment', () => {
       });
 
       it('updates after pagination if no more results are available', () => {
-        const callback = jest.fn();
+        const callback = jest.fn<[Error | null], void>();
         const renderer = renderFragment();
         expectFragmentResults([
           {

@@ -13,11 +13,11 @@
 
 import type {IEnvironment} from 'relay-runtime';
 
+const ReactRelayContext = require('./../ReactRelayContext');
 const invariant = require('invariant');
 const {useContext} = require('react');
-const ReactRelayContext = require('react-relay/ReactRelayContext');
 
-function useRelayEnvironment(): IEnvironment {
+hook useRelayEnvironment(): IEnvironment {
   const context = useContext(ReactRelayContext);
   invariant(
     context != null,

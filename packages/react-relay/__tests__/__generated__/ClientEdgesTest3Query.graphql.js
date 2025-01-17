@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<42d91402a1e6757100805ca8d009ee5d>>
+ * @generated SignedSource<<3d1c5acd70a753e740b92cee04e932b7>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,14 +18,19 @@
 
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
-import {client_node as userClientNodeResolver} from "../../../relay-runtime/store/__tests__/resolvers/UserClientEdgeNodeResolver.js";
-// Type assertion validating that `userClientNodeResolver` resolver is correctly implemented.
+import type { DataID } from "relay-runtime";
+import {client_node as userClientNodeResolverType} from "../../../relay-runtime/store/__tests__/resolvers/UserClientEdgeNodeResolver.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userClientNodeResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userClientNodeResolver: (
+(userClientNodeResolverType: (
   args: {|
     id: string,
-  |}, 
-) => mixed);
+  |},
+  context: TestResolverContextType,
+) => ?{|
+  +id: DataID,
+|});
 export type ClientEdgesTest3Query$variables = {|
   id: string,
 |};
@@ -114,8 +119,7 @@ return {
                 "storageKey": null
               }
             },
-            "action": "THROW",
-            "path": "me.client_node"
+            "action": "THROW"
           }
         ],
         "storageKey": null
@@ -139,23 +143,19 @@ return {
         "plural": false,
         "selections": [
           {
+            "name": "client_node",
+            "args": (v1/*: any*/),
+            "fragment": null,
+            "kind": "RelayResolver",
+            "storageKey": null,
+            "isOutputType": false
+          },
+          {
             "alias": null,
             "args": null,
             "kind": "ScalarField",
             "name": "id",
             "storageKey": null
-          },
-          {
-            "kind": "ClientExtension",
-            "selections": [
-              {
-                "name": "client_node",
-                "args": (v1/*: any*/),
-                "fragment": null,
-                "kind": "RelayResolver",
-                "storageKey": null
-              }
-            ]
           }
         ],
         "storageKey": null

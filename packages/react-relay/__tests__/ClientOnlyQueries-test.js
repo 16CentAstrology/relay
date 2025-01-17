@@ -25,7 +25,6 @@ const {
   Environment,
   Network,
   RecordSource,
-  RelayFeatureFlags,
   Store,
   commitLocalUpdate,
   createOperationDescriptor,
@@ -48,16 +47,6 @@ function createEnvironment(
     store: new Store(source),
   });
 }
-
-beforeEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = true;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = true;
-});
-
-afterEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = false;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = false;
-});
 
 describe('Client-only queries', () => {
   let renderer;
@@ -191,23 +180,20 @@ describe('Client-only queries', () => {
         const settings = store.create(settingsID, 'Settings');
         root.setLinkedRecord(settings, 'defaultSettings');
 
-        const updatableData = store.readUpdatableQuery_EXPERIMENTAL(
+        const updatableData = store.readUpdatableQuery(
           updatableQuery,
           {},
         ).updatableData;
         const defaultSettings = updatableData.defaultSettings;
         if (defaultSettings != null) {
-          defaultSettings.client_field =
-            'Set with readUpdatableQuery_EXPERIMENTAL';
+          defaultSettings.client_field = 'Set with readUpdatableQuery';
         } else {
           throw new Error('Expected `defaultSettings` to be defined.');
         }
       });
     });
 
-    expect(renderer.toJSON()).toEqual(
-      'Set with readUpdatableQuery_EXPERIMENTAL',
-    );
+    expect(renderer.toJSON()).toEqual('Set with readUpdatableQuery');
   });
 });
 

@@ -21,7 +21,7 @@ impl SourcePrinter {
     pub fn write_span<W: Write>(
         &self,
         writer: &mut W,
-        span: &Span,
+        span: Span,
         source: &str,
         line_offset: usize,
     ) -> std::fmt::Result {
@@ -31,7 +31,7 @@ impl SourcePrinter {
     pub fn write_span_with_highlight_style<W: Write>(
         &self,
         writer: &mut W,
-        span: &Span,
+        span: Span,
         source: &str,
         line_offset: usize,
         highlight_style: Style,
@@ -74,14 +74,14 @@ impl SourcePrinter {
             let end = line_end_byte_indices
                 .get(line_index)
                 .cloned()
-                .unwrap_or_else(|| source.len());
+                .unwrap_or(source.len());
             let start = if line_index == 0 {
                 0
             } else {
                 line_end_byte_indices
                     .get(line_index - 1)
                     .cloned()
-                    .unwrap_or_else(|| source.len())
+                    .unwrap_or(source.len())
             };
             start..end
         };

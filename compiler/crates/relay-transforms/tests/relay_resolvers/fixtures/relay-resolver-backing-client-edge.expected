@@ -26,16 +26,17 @@ fragment BestFriendResolverFragment on User {
 fragment Foo_user on User {
   ...BestFriendResolverFragment @__RelayResolverMetadata
   # RelayResolverMetadata {
-  #     field_parent_type: "User",
+  #     field_id: FieldID(526),
   #     import_path: "BestFriendResolver",
   #     import_name: None,
-  #     field_name: "best_friend",
   #     field_alias: None,
   #     field_path: "best_friend",
   #     field_arguments: [],
   #     live: false,
-  #     output_type_info: None,
+  #     output_type_info: EdgeTo,
   #     fragment_data_injection_mode: None,
+  #     type_confirmed: false,
+  #     resolver_type: ResolverModule,
   # }
   
 }

@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<594b5bc6ac19b1a70701ee928e496bee>>
+ * @generated SignedSource<<f2b8409d59ff88b87fd0141ae4c8e7bd>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,17 +19,19 @@
 /*::
 import type { Fragment, ReaderFragment } from 'relay-runtime';
 import type { FragmentType } from "relay-runtime";
-import {hello as queryHelloResolver} from "../HelloWorldResolver.js";
-// Type assertion validating that `queryHelloResolver` resolver is correctly implemented.
+import {hello as queryHelloResolverType} from "../HelloWorldResolver.js";
+import type { TestResolverContextType } from "../../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryHelloResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryHelloResolver: (
+(queryHelloResolverType: (
   args: {|
     world: string,
-  |}, 
-) => mixed);
+  |},
+  context: TestResolverContextType,
+) => ?string);
 declare export opaque type HelloWorldResolverWithProvidedVariable$fragmentType: FragmentType;
 export type HelloWorldResolverWithProvidedVariable$data = {|
-  +hello: ?$Call<<R>((...empty[]) => R) => R, typeof queryHelloResolver>,
+  +hello: ?string,
   +$fragmentType: HelloWorldResolverWithProvidedVariable$fragmentType,
 |};
 export type HelloWorldResolverWithProvidedVariable$key = {
@@ -43,7 +45,7 @@ var node/*: ReaderFragment*/ = {
   "argumentDefinitions": [
     {
       "kind": "RootArgument",
-      "name": "__relay_internal__pv__HelloWorldProviderjs"
+      "name": "__relay_internal__pv__HelloWorldProviderrelayprovider"
     }
   ],
   "kind": "Fragment",
@@ -59,7 +61,7 @@ var node/*: ReaderFragment*/ = {
             {
               "kind": "Variable",
               "name": "world",
-              "variableName": "__relay_internal__pv__HelloWorldProviderjs"
+              "variableName": "__relay_internal__pv__HelloWorldProviderrelayprovider"
             }
           ],
           "fragment": null,
@@ -76,7 +78,7 @@ var node/*: ReaderFragment*/ = {
 };
 
 if (__DEV__) {
-  (node/*: any*/).hash = "eaa3cd07d00f67f243afb816ae3dc3dd";
+  (node/*: any*/).hash = "9f94df55099df09e6d33779b83f732fc";
 }
 
 module.exports = ((node/*: any*/)/*: Fragment<

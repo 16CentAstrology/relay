@@ -11,15 +11,13 @@
 
 'use strict';
 
+import type {HelloWorldResolverWithProvidedVariable$key} from './__generated__/HelloWorldResolverWithProvidedVariable.graphql';
+
 const {graphql} = require('relay-runtime');
 const {readFragment} = require('relay-runtime/store/ResolverFragments');
 
-import type {HelloWorldResolverWithProvidedVariable$key} from './__generated__/HelloWorldResolverWithProvidedVariable.graphql';
-
 /**
- * @RelayResolver
- * @fieldName hello_world_with_provided_variable
- * @onType Query
+ * @RelayResolver Query.hello_world_with_provided_variable: String
  * @rootFragment HelloWorldResolverWithProvidedVariable
  *
  * Say `Hello ${world}!`
@@ -33,7 +31,7 @@ function hello_world_with_provided_variable(
       @argumentDefinitions(
         provided_variable: {
           type: "String!"
-          provider: "./HelloWorldProvider.js"
+          provider: "./HelloWorldProvider.relayprovider"
         }
       ) {
         hello(world: $provided_variable)

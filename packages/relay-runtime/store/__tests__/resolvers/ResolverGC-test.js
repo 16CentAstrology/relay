@@ -18,9 +18,12 @@ import type {
   OperationType,
   VariablesOf,
 } from '../../../util/RelayRuntimeTypes';
-import type {Snapshot} from '../../RelayStoreTypes';
+import type {LogEvent} from '../../RelayStoreTypes';
+import type {IEnvironment, Snapshot} from '../../RelayStoreTypes';
 
-const {RelayFeatureFlags} = require('relay-runtime');
+const {HOUSE_ORDER} = require('./AstrologicalSignUtils');
+const {GLOBAL_STORE} = require('./ExampleExternalStateStore');
+const invariant = require('invariant');
 const RelayNetwork = require('relay-runtime/network/RelayNetwork');
 const {graphql} = require('relay-runtime/query/GraphQLTag');
 const {
@@ -32,12 +35,15 @@ const {
 const {
   counter: counterResolver,
 } = require('relay-runtime/store/__tests__/resolvers/LiveCounterResolver');
-const LiveResolverStore = require('relay-runtime/store/experimental-live-resolvers/LiveResolverStore.js');
 const RelayModernEnvironment = require('relay-runtime/store/RelayModernEnvironment');
 const {
   createOperationDescriptor,
 } = require('relay-runtime/store/RelayModernOperationDescriptor');
+const RelayModernStore = require('relay-runtime/store/RelayModernStore.js');
 const RelayRecordSource = require('relay-runtime/store/RelayRecordSource');
+const {
+  RELAY_READ_TIME_RESOLVER_KEY_PREFIX,
+} = require('relay-runtime/store/RelayStoreUtils');
 const {
   disallowConsoleErrors,
   disallowWarnings,
@@ -47,14 +53,7 @@ disallowWarnings();
 disallowConsoleErrors();
 
 beforeEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = true;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = true;
   resetStore();
-});
-
-afterEach(() => {
-  RelayFeatureFlags.ENABLE_RELAY_RESOLVERS = false;
-  RelayFeatureFlags.ENABLE_CLIENT_EDGES = false;
 });
 
 test('Live Resolver without fragment', async () => {
@@ -75,7 +74,7 @@ test('Live Resolver without fragment', async () => {
       expect(snapshot.data).toEqual({counter_no_fragment: 0});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:counter_no_fragment',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter_no_fragment`,
       ]);
     },
     afterRetainedGC: (snapshot, recordIdsInStore) => {
@@ -83,7 +82,7 @@ test('Live Resolver without fragment', async () => {
       expect(snapshot.data).toEqual({counter_no_fragment: 0});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:counter_no_fragment',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter_no_fragment`,
       ]);
     },
     afterFreedGC: recordIdsInStore => {
@@ -94,7 +93,7 @@ test('Live Resolver without fragment', async () => {
       expect(snapshot.data).toEqual({counter_no_fragment: 0});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:counter_no_fragment',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter_no_fragment`,
       ]);
     },
   });
@@ -111,7 +110,7 @@ test('Live Resolver _with_ root fragment', async () => {
     variables: {},
     payloads: [{data: {me: {__typename: 'User', id: '1'}}}],
     beforeLookup: recordIdsInStore => {
-      expect(recordIdsInStore).toEqual(['client:root']);
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
     },
     afterLookup: (snapshot, recordIdsInStore) => {
       expect(counterResolver.callCount - initialCallCount).toBe(1);
@@ -119,7 +118,7 @@ test('Live Resolver _with_ root fragment', async () => {
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:root:counter',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter`,
       ]);
     },
     afterRetainedGC: (snapshot, recordIdsInStore) => {
@@ -128,7 +127,7 @@ test('Live Resolver _with_ root fragment', async () => {
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:root:counter',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter`,
       ]);
     },
     afterFreedGC: recordIdsInStore => {
@@ -138,7 +137,10 @@ test('Live Resolver _with_ root fragment', async () => {
       expect(counterResolver.callCount - initialCallCount).toBe(2);
       // Note that we _can't_ recreate the Resolver value because it's root fragment has been GGed.
       expect(snapshot.data).toEqual({counter: undefined});
-      expect(recordIdsInStore).toEqual(['client:root', 'client:root:counter']);
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter`,
+      ]);
     },
   });
 });
@@ -153,15 +155,15 @@ test('Regular resolver with fragment reads live resovler with fragment', async (
     variables: {},
     payloads: [{data: {me: {__typename: 'User', id: '1'}}}],
     beforeLookup: recordIdsInStore => {
-      expect(recordIdsInStore).toEqual(['client:root']);
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
     },
     afterLookup: (snapshot, recordIdsInStore) => {
       expect(snapshot.data).toEqual({counter_plus_one: 1});
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:root:counter',
-        'client:root:counter_plus_one',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter`,
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter_plus_one`,
       ]);
     },
     afterRetainedGC: (snapshot, recordIdsInStore) => {
@@ -169,23 +171,32 @@ test('Regular resolver with fragment reads live resovler with fragment', async (
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:root:counter',
-        'client:root:counter_plus_one',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter`,
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter_plus_one`,
       ]);
     },
     afterFreedGC: recordIdsInStore => {
       expect(recordIdsInStore).toEqual(['client:root']);
     },
     afterLookupAfterFreedGC: (snapshot, recordIdsInStore) => {
-      expect(snapshot.data).toEqual({counter_plus_one: undefined});
-      expect(snapshot.missingRequiredFields).toEqual({
-        action: 'THROW',
-        field: {owner: 'CounterPlusOneResolver', path: 'counter'},
-      });
+      expect(snapshot.data).toEqual({counter_plus_one: null});
+      expect(snapshot.fieldErrors).toEqual([
+        {
+          fieldPath: 'me.<record>',
+          kind: 'missing_expected_data.log',
+          owner: 'LiveCounterResolver',
+        },
+        {
+          fieldPath: 'counter',
+          kind: 'missing_required_field.throw',
+          owner: 'CounterPlusOneResolver',
+          handled: true,
+        },
+      ]);
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:counter',
-        'client:root:counter_plus_one',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter`,
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}counter_plus_one`,
       ]);
     },
   });
@@ -203,14 +214,14 @@ test('Non-live Resolver with fragment', async () => {
     variables: {},
     payloads: [{data: {me: {__typename: 'User', id: '1', name: 'Elizabeth'}}}],
     beforeLookup: recordIdsInStore => {
-      expect(recordIdsInStore).toEqual(['client:root']);
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
     },
     afterLookup: (snapshot, recordIdsInStore) => {
       expect(snapshot.data).toEqual({me: {greeting: 'Hello, Elizabeth!'}});
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:1:greeting',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}greeting`,
       ]);
     },
     afterRetainedGC: (snapshot, recordIdsInStore) => {
@@ -218,7 +229,7 @@ test('Non-live Resolver with fragment', async () => {
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:1:greeting',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}greeting`,
       ]);
     },
     afterFreedGC: recordIdsInStore => {
@@ -248,14 +259,14 @@ test('Non-live Resolver with no fragment and static arguments', async () => {
       expect(snapshot.data).toEqual({hello: 'Hello, Planet!'});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:hello(world:"Planet")',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}hello(world:"Planet")`,
       ]);
     },
     afterRetainedGC: (snapshot, recordIdsInStore) => {
       expect(snapshot.data).toEqual({hello: 'Hello, Planet!'});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:hello(world:"Planet")',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}hello(world:"Planet")`,
       ]);
     },
     afterFreedGC: recordIdsInStore => {
@@ -265,7 +276,7 @@ test('Non-live Resolver with no fragment and static arguments', async () => {
       expect(snapshot.data).toEqual({hello: 'Hello, Planet!'});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:hello(world:"Planet")',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}hello(world:"Planet")`,
       ]);
     },
   });
@@ -287,14 +298,14 @@ test('Non-live Resolver with no fragment and dynamic arguments', async () => {
       expect(snapshot.data).toEqual({hello: 'Hello, Planet!'});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:hello(world:"Planet")',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}hello(world:"Planet")`,
       ]);
     },
     afterRetainedGC: (snapshot, recordIdsInStore) => {
       expect(snapshot.data).toEqual({hello: 'Hello, Planet!'});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:hello(world:"Planet")',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}hello(world:"Planet")`,
       ]);
     },
     afterFreedGC: recordIdsInStore => {
@@ -305,7 +316,7 @@ test('Non-live Resolver with no fragment and dynamic arguments', async () => {
       expect(snapshot.data).toEqual({hello: 'Hello, Planet!'});
       expect(recordIdsInStore).toEqual([
         'client:root',
-        'client:root:hello(world:"Planet")',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}hello(world:"Planet")`,
       ]);
     },
   });
@@ -346,7 +357,7 @@ test('Resolver reading a client-edge to a server type', async () => {
       },
     ],
     beforeLookup: recordIdsInStore => {
-      expect(recordIdsInStore).toEqual(['client:root']);
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
     },
     afterLookup: (snapshot, recordIdsInStore) => {
       expect(snapshot.data).toEqual({
@@ -362,7 +373,7 @@ test('Resolver reading a client-edge to a server type', async () => {
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:1:client_edge',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}client_edge`,
         '1337',
         '1234',
       ]);
@@ -381,7 +392,7 @@ test('Resolver reading a client-edge to a server type', async () => {
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:1:client_edge',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}client_edge`,
         '1337',
         '1234',
       ]);
@@ -437,7 +448,7 @@ test('Resolver reading a client-edge to a server type (recursive)', async () => 
       },
     ],
     beforeLookup: recordIdsInStore => {
-      expect(recordIdsInStore).toEqual(['client:root']);
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
     },
     afterLookup: (snapshot, recordIdsInStore) => {
       expect(snapshot.data).toEqual({
@@ -453,9 +464,9 @@ test('Resolver reading a client-edge to a server type (recursive)', async () => 
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:1:client_edge',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}client_edge`,
         '1337',
-        'client:1337:another_client_edge',
+        `client:1337:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}another_client_edge`,
         '1338',
       ]);
     },
@@ -473,9 +484,9 @@ test('Resolver reading a client-edge to a server type (recursive)', async () => 
       expect(recordIdsInStore).toEqual([
         'client:root',
         '1',
-        'client:1:client_edge',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}client_edge`,
         '1337',
-        'client:1337:another_client_edge',
+        `client:1337:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}another_client_edge`,
         '1338',
       ]);
     },
@@ -490,12 +501,421 @@ test('Resolver reading a client-edge to a server type (recursive)', async () => 
   });
 });
 
+test('Resolver reading a client-edge to a client type', async () => {
+  await testResolverGC({
+    query: graphql`
+      query ResolverGCTestResolverClientEdgeToClientQuery {
+        me {
+          astrological_sign {
+            name
+          }
+        }
+      }
+    `,
+    variables: {},
+    payloads: [
+      {
+        data: {
+          me: {__typename: 'User', id: '1', birthdate: {month: 3, day: 11}},
+        },
+      },
+    ],
+    beforeLookup: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        'client:1:birthdate',
+      ]);
+    },
+    afterLookup: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        me: {astrological_sign: {name: 'Pisces'}},
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:1:birthdate`,
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}astrological_sign`,
+        `client:AstrologicalSign:Pisces`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+      ]);
+    },
+    afterRetainedGC: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        me: {astrological_sign: {name: 'Pisces'}},
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        'client:1:birthdate',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}astrological_sign`,
+        'client:AstrologicalSign:Pisces',
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+      ]);
+    },
+
+    afterFreedGC: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+    afterLookupAfterFreedGC: (snapshot, recordIdsInStore) => {
+      // Note that we _can't_ recreate the Resolver value because it's root fragment has been GGed.
+      expect(snapshot.data).toEqual({me: undefined});
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+  });
+});
+
+test('Resolver reading a client-edge to a client type (resolver marked dirty)', async () => {
+  await testResolverGC({
+    query: graphql`
+      query ResolverGCTestResolverClientEdgeToClientDirtyQuery {
+        me {
+          astrological_sign {
+            name
+          }
+        }
+      }
+    `,
+    variables: {},
+    payloads: [
+      {
+        data: {
+          me: {__typename: 'User', id: '1', birthdate: {month: 3, day: 11}},
+        },
+      },
+    ],
+    beforeLookup: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        'client:1:birthdate',
+      ]);
+    },
+    afterLookup: (snapshot, recordIdsInStore, environment) => {
+      expect(snapshot.data).toEqual({
+        me: {astrological_sign: {name: 'Pisces'}},
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:1:birthdate`,
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}astrological_sign`,
+        `client:AstrologicalSign:Pisces`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+      ]);
+
+      /* Here we update the user to invalidate the astrological_sign resolver */
+      environment.commitUpdate(store => {
+        const user = store.get('1');
+        invariant(user != null, 'Expected to find a user');
+        user.setValue('some_value', 'some_field');
+      });
+    },
+    afterRetainedGC: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        me: {astrological_sign: {name: 'Pisces'}},
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        'client:1:birthdate',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}astrological_sign`,
+        'client:AstrologicalSign:Pisces',
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+      ]);
+    },
+
+    afterFreedGC: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+    afterLookupAfterFreedGC: (snapshot, recordIdsInStore) => {
+      // Note that we _can't_ recreate the Resolver value because it's root fragment has been GGed.
+      expect(snapshot.data).toEqual({me: undefined});
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+  });
+});
+
+test('Resolver reading a client-edge to a client type (suspended)', async () => {
+  await testResolverGC({
+    query: graphql`
+      query ResolverGCTestResolverClientEdgeToClientSuspendedQuery {
+        virgo_suspends_when_counter_is_odd {
+          name
+        }
+        # Dummy server data
+        me {
+          __typename
+        }
+      }
+    `,
+    variables: {},
+    payloads: [{data: {me: {__typename: 'User', id: '1'}}}],
+    beforeLookup: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
+      /* Here we update the exteral state to cause `virgo_susepends_when_counter_is_odd` to suspend */
+      GLOBAL_STORE.dispatch({type: 'INCREMENT'});
+    },
+    afterLookup: (snapshot, recordIdsInStore) => {
+      expect(snapshot.missingLiveResolverFields?.length).toBe(1);
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}virgo_suspends_when_counter_is_odd`,
+        // We don't have any of the Virgo records because they were not created.
+      ]);
+    },
+    afterRetainedGC: (snapshot, recordIdsInStore) => {
+      expect(snapshot.missingLiveResolverFields?.length).toBe(1);
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}virgo_suspends_when_counter_is_odd`,
+        // We don't have any of the Virgo records because they were not created.
+      ]);
+    },
+
+    afterFreedGC: recordIdsInStore => {
+      // No assertions
+    },
+    afterLookupAfterFreedGC: (snapshot, recordIdsInStore) => {
+      // No assertions
+    },
+  });
+});
+
+test('Resolver reading a plural client-edge to a client type', async () => {
+  await testResolverGC({
+    query: graphql`
+      query ResolverGCTestResolverClientEdgeToPluralClientQuery {
+        all_astrological_signs {
+          __id
+        }
+      }
+    `,
+    variables: {},
+    payloads: [{data: {me: {id: '1', __typename: 'User'}}}],
+    beforeLookup: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual(['client:root', '1']);
+    },
+    afterLookup: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        all_astrological_signs: HOUSE_ORDER.map(name => ({
+          __id: `client:AstrologicalSign:${name}`,
+        })),
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}all_astrological_signs`,
+        ...HOUSE_ORDER.map(name => `client:AstrologicalSign:${name}`),
+      ]);
+    },
+    afterRetainedGC: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        all_astrological_signs: HOUSE_ORDER.map(name => ({
+          __id: `client:AstrologicalSign:${name}`,
+        })),
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}all_astrological_signs`,
+        ...HOUSE_ORDER.map(name => `client:AstrologicalSign:${name}`),
+      ]);
+    },
+
+    afterFreedGC: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+    afterLookupAfterFreedGC: (snapshot, recordIdsInStore) => {
+      // Note that we _can't_ recreate the Resolver value because it's root fragment has been GGed.
+      expect(snapshot.data).toEqual({all_astrological_signs: null});
+      expect(snapshot.fieldErrors).toEqual([
+        {
+          fieldPath: 'me.<record>',
+          kind: 'missing_expected_data.log',
+          owner: 'QueryAllAstrologicalSignsResolver',
+        },
+      ]);
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        `client:root:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}all_astrological_signs`,
+      ]);
+    },
+  });
+});
+
+test('Resolver reading a client-edge to a client type (recursive)', async () => {
+  await testResolverGC({
+    query: graphql`
+      query ResolverGCTestResolverClientEdgeToClientRecursiveQuery {
+        me {
+          astrological_sign {
+            name
+            opposite {
+              name
+            }
+          }
+        }
+      }
+    `,
+    variables: {},
+    payloads: [
+      {
+        data: {
+          me: {__typename: 'User', id: '1', birthdate: {month: 3, day: 11}},
+        },
+      },
+    ],
+    beforeLookup: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        'client:1:birthdate',
+      ]);
+    },
+    afterLookup: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        me: {astrological_sign: {name: 'Pisces', opposite: {name: 'Virgo'}}},
+      });
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        `client:1:birthdate`,
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}astrological_sign`,
+        `client:AstrologicalSign:Pisces`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}opposite`,
+        `client:AstrologicalSign:Virgo`,
+        `client:AstrologicalSign:Virgo:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Virgo:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+      ]);
+    },
+    afterRetainedGC: (snapshot, recordIdsInStore) => {
+      expect(snapshot.data).toEqual({
+        me: {astrological_sign: {name: 'Pisces', opposite: {name: 'Virgo'}}},
+      });
+
+      expect(recordIdsInStore).toEqual([
+        'client:root',
+        '1',
+        'client:1:birthdate',
+        `client:1:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}astrological_sign`,
+        'client:AstrologicalSign:Pisces',
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+        `client:AstrologicalSign:Pisces:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}opposite`,
+        'client:AstrologicalSign:Virgo',
+        `client:AstrologicalSign:Virgo:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}self`,
+        `client:AstrologicalSign:Virgo:${RELAY_READ_TIME_RESOLVER_KEY_PREFIX}name`,
+      ]);
+    },
+    afterFreedGC: recordIdsInStore => {
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+    afterLookupAfterFreedGC: (snapshot, recordIdsInStore) => {
+      // Note that we _can't_ recreate the Resolver value because it's root fragment has been GGed.
+      expect(snapshot.data).toEqual({me: undefined});
+      expect(recordIdsInStore).toEqual(['client:root']);
+    },
+  });
+});
+
+test.each([0, 1, 5])(
+  'Live Resolver cleanup when %i references retained',
+  async numRetainedReferences => {
+    const unsubscribeMock = jest.fn();
+    const subscribeSpy = jest
+      .spyOn(GLOBAL_STORE, 'subscribe')
+      .mockImplementation(() => {
+        return unsubscribeMock;
+      });
+
+    // Reset the store before each test run
+    resetStore();
+
+    const source = RelayRecordSource.create();
+
+    const store = new RelayModernStore(source, {
+      gcReleaseBufferSize: 0,
+    });
+
+    const environment = new RelayModernEnvironment({
+      network: RelayNetwork.create((request, variables) => {
+        return Promise.resolve({data: {}});
+      }),
+      store,
+    });
+
+    // The operation that uses the live resolver
+    const operation = createOperationDescriptor(
+      graphql`
+        query ResolverGCTestNoRetainedQueriesQuery {
+          counter_no_fragment
+        }
+      `,
+      {},
+    );
+
+    // Execute the query to populate the store
+    await environment.execute({operation}).toPromise();
+
+    // Lookup the data to trigger evaluation of the resolver
+    const snapshot = environment.lookup(operation.fragment);
+
+    // Ensure the live resolver has been called
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+    expect(snapshot.data).toEqual({counter_no_fragment: 0});
+
+    // Retain the operation if numRetainedReferences > 0
+    const retains = [];
+    for (let i = 0; i < numRetainedReferences; i++) {
+      retains.push(environment.retain(operation));
+    }
+
+    // Run GC
+    store.__gc();
+
+    if (numRetainedReferences > 0) {
+      // The data is still retained, so cleanup should not have happened
+      expect(unsubscribeMock).not.toHaveBeenCalled();
+    } else {
+      // The data is not retained, cleanup should have happened
+      expect(unsubscribeMock).toHaveBeenCalledTimes(1);
+    }
+
+    // Dispose of the retains
+    for (const retain of retains) {
+      retain.dispose();
+    }
+
+    // Run GC again to ensure cleanup happens after disposing retains
+    store.__gc();
+
+    // Now, cleanup should have happened if it didn't before
+    expect(unsubscribeMock).toHaveBeenCalledTimes(1);
+
+    // Cleanup the spy
+    subscribeSpy.mockRestore();
+  },
+);
+
 type TestProps<T: OperationType> = {
   query: ConcreteRequest,
   variables: VariablesOf<T>,
   payloads: Array<GraphQLResponse>,
   beforeLookup: (recordIdsInStore: Array<DataID>) => void,
-  afterLookup: (snapshot: Snapshot, recordIdsInStore: Array<DataID>) => void,
+  afterLookup: (
+    snapshot: Snapshot,
+    recordIdsInStore: Array<DataID>,
+    environment: IEnvironment,
+  ) => void,
   afterRetainedGC: (
     snapshot: Snapshot,
     recordIdsInStore: Array<DataID>,
@@ -524,6 +944,7 @@ async function testResolverGC<T: OperationType>({
   query,
   payloads,
   variables,
+  beforeLookup,
   afterLookup,
   afterRetainedGC,
   afterFreedGC,
@@ -542,9 +963,9 @@ async function testResolverGC<T: OperationType>({
   );
   const operation = createOperationDescriptor(query, variables);
 
-  const mockLogger = jest.fn();
+  const mockLogger = jest.fn<[LogEvent], void>();
 
-  const store = new LiveResolverStore(source, {
+  const store = new RelayModernStore(source, {
     gcReleaseBufferSize: 0,
     log: mockLogger,
   });
@@ -565,6 +986,7 @@ async function testResolverGC<T: OperationType>({
   });
 
   await environment.execute({operation}).toPromise();
+  beforeLookup(store.getSource().getRecordIDs());
 
   const retains = [];
   const operations = [operation];
@@ -595,7 +1017,7 @@ async function testResolverGC<T: OperationType>({
     // been resolved.
     snapshot = environment.lookup(operation.fragment);
   }
-  afterLookup(snapshot, store.getSource().getRecordIDs());
+  afterLookup(snapshot, store.getSource().getRecordIDs(), environment);
 
   environment.retain(emptyQueryOperation);
 
@@ -605,10 +1027,9 @@ async function testResolverGC<T: OperationType>({
   }
   store.__gc();
 
+  afterRetainedGC(snapshot, store.getSource().getRecordIDs());
   const nextSnapshot = environment.lookup(operation.fragment);
   afterRetainedGC(nextSnapshot, store.getSource().getRecordIDs());
-
-  expect(nextSnapshot.isMissingData).toEqual(false); // Sanity check results
 
   // Dispose of the original query and all client edge queries fetched.
   for (const disposable of retains) {

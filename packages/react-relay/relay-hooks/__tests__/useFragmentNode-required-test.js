@@ -13,7 +13,7 @@
 import type {ReaderFragment} from '../../../relay-runtime/util/ReaderNode';
 import type {RequestDescriptor} from 'relay-runtime/store/RelayStoreTypes';
 
-const useFragmentNodeOriginal = require('../useFragmentNode');
+const useFragmentNodeOriginal = require('../legacy/useFragmentNode');
 const React = require('react');
 const ReactRelayContext = require('react-relay/ReactRelayContext');
 const TestRenderer = require('react-test-renderer');
@@ -32,15 +32,14 @@ let singularQuery;
 let renderSingularFragment;
 let renderSpy;
 
-function useFragmentNode(
+hook useFragmentNode(
   fragmentNode: ReaderFragment,
-  fragmentRef: $TEMPORARY$object<{
+  fragmentRef: $ReadOnly<{
     __fragmentOwner: RequestDescriptor,
-    __fragments: $TEMPORARY$object<{
-      useFragmentNodeRequiredTestUserFragment: $TEMPORARY$object<{...}>,
+    __fragments: $ReadOnly<{
+      useFragmentNodeRequiredTestUserFragment: $ReadOnly<{...}>,
     }>,
     __id: any,
-    __isWithinUnmatchedTypeRefinement: boolean,
   }>,
 ) {
   const result = useFragmentNodeOriginal<any>(
@@ -57,7 +56,9 @@ beforeEach(() => {
   jest.resetModules();
   jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
   jest.mock('warning');
-  renderSpy = jest.fn();
+  /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
+   * enabling Flow LTI mode */
+  renderSpy = jest.fn<_, mixed>();
 
   // Set up environment and base data
   environment = createMockEnvironment();
@@ -90,7 +91,7 @@ beforeEach(() => {
 
   const ContextProvider = ({
     children,
-  }: any | $TEMPORARY$object<{children: React.Node}>) => {
+  }: any | $ReadOnly<{children: React.Node}>) => {
     return (
       <ReactRelayContext.Provider value={{environment}}>
         {children}
@@ -106,7 +107,6 @@ beforeEach(() => {
         useFragmentNodeRequiredTestUserFragment: {},
       },
       [FRAGMENT_OWNER_KEY]: singularQuery.request,
-      __isWithinUnmatchedTypeRefinement: false,
     };
 
     useFragmentNode(gqlSingularFragment, userRef);
@@ -132,7 +132,9 @@ afterEach(() => {
 it('should render singular fragment without error when data is available', () => {
   // $FlowFixMe[prop-missing]
   warning.mockClear();
-  renderSingularFragment();
+  TestRenderer.act(() => {
+    renderSingularFragment();
+  });
   expect(renderSpy).toHaveBeenCalledWith(
     expect.objectContaining({
       data: {
@@ -157,7 +159,9 @@ it('should not warn on missing record when null bubbles to fragment root', () =>
   // $FlowFixMe[prop-missing]
   warning.mockClear();
 
-  renderSingularFragment();
+  TestRenderer.act(() => {
+    renderSingularFragment();
+  });
   expect(renderSpy).toHaveBeenCalledWith(
     expect.objectContaining({
       data: null,

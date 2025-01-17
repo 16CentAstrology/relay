@@ -10,6 +10,10 @@
  */
 
 'use strict';
+import type {GraphQLResponse} from '../../network/RelayNetworkTypes';
+import type {RecordSourceSelectorProxy} from '../../store/RelayStoreTypes';
+import type {RequestParameters} from '../../util/RelayConcreteNode';
+import type {CacheConfig, Variables} from '../../util/RelayRuntimeTypes';
 
 const RelayNetwork = require('../../network/RelayNetwork');
 const RelayObservable = require('../../network/RelayObservable');
@@ -224,10 +228,16 @@ describe('requestSubscription-test', () => {
       `;
 
       cacheMetadata = undefined;
-      const fetch = jest.fn((_query, _variables, _cacheConfig) => {
-        cacheMetadata = _cacheConfig.metadata;
-        return RelayObservable.create(() => {});
-      });
+      const fetch = jest.fn(
+        (
+          _query: RequestParameters,
+          _variables: Variables,
+          _cacheConfig: CacheConfig,
+        ) => {
+          cacheMetadata = _cacheConfig.metadata;
+          return RelayObservable.create<GraphQLResponse>(() => {});
+        },
+      );
       const source = RelayRecordSource.create({});
       const store = new RelayModernStore(source);
       environment = new RelayModernEnvironment({
@@ -309,7 +319,7 @@ describe('requestSubscription-test', () => {
       {},
       operationDescriptor.request,
     );
-    const onNext = jest.fn();
+    const onNext = jest.fn<[?$FlowFixMe], void>();
 
     let id = 0;
     requestSubscription(environment, {
@@ -370,10 +380,13 @@ describe('requestSubscription-test', () => {
         config: {
           name: 'Mark',
           __id: expect.any(String),
-          __fragments: {requestSubscriptionTestExtraFragment: {}},
+          __fragments: {
+            requestSubscriptionTestExtraFragment: {
+              // TODO T96653810: Correctly detect reading from root of mutation/subscription
+              $isWithinUnmatchedTypeRefinement: true, // should be false
+            },
+          },
           __fragmentOwner: expect.any(Object),
-          // TODO T96653810: Correctly detect reading from root of mutation/subscription
-          __isWithinUnmatchedTypeRefinement: true, // should be false
         },
       },
     });
@@ -411,9 +424,12 @@ describe('requestSubscription-test', () => {
         config: {
           name: 'Zuck',
           __id: expect.any(String),
-          __fragments: {requestSubscriptionTestExtraFragment: {}},
+          __fragments: {
+            requestSubscriptionTestExtraFragment: {
+              $isWithinUnmatchedTypeRefinement: true,
+            },
+          },
           __fragmentOwner: expect.any(Object),
-          __isWithinUnmatchedTypeRefinement: true,
         },
       },
     });
@@ -456,8 +472,8 @@ describe('requestSubscription-test', () => {
       },
     });
 
-    const onNext = jest.fn();
-    const updater = jest.fn();
+    const onNext = jest.fn<[?$FlowFixMe], void>();
+    const updater = jest.fn<[RecordSourceSelectorProxy, ?$FlowFixMe], void>();
 
     requestSubscription(environment, {
       subscription,

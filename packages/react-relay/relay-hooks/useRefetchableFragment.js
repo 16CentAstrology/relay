@@ -11,86 +11,85 @@
 
 'use strict';
 
-import type {RefetchFnDynamic} from './useRefetchableFragmentNode';
+import type {Options} from './useRefetchableFragmentInternal';
 import type {
+  Disposable,
   FragmentType,
-  GraphQLTaggedNode,
-  OperationType,
+  RefetchableFragment,
+  Variables,
 } from 'relay-runtime';
 
-const HooksImplementation = require('./HooksImplementation');
-const useRefetchableFragmentNode = require('./useRefetchableFragmentNode');
+const useRefetchableFragmentInternal = require('./useRefetchableFragmentInternal');
 const useStaticFragmentNodeWarning = require('./useStaticFragmentNodeWarning');
 const {useDebugValue} = require('react');
 const {getFragment} = require('relay-runtime');
 
-type ReturnType<TQuery: OperationType, TKey: ?{+$data?: mixed, ...}> = [
-  // NOTE: This $Call ensures that the type of the returned data is either:
+type RefetchVariables<TVariables, TKey: ?{+$fragmentSpreads: mixed, ...}> =
+  // NOTE: This type ensures that the type of the returned variables is either:
   //   - nullable if the provided ref type is nullable
   //   - non-nullable if the provided ref type is non-nullable
-  // prettier-ignore
-  $Call<
-    & (<TFragmentData>( { +$data?: TFragmentData, ... }) =>  TFragmentData)
-    & (<TFragmentData>(?{ +$data?: TFragmentData, ... }) => ?TFragmentData),
-    TKey,
-  >,
-  RefetchFnDynamic<TQuery, TKey>,
+  [+key: TKey] extends [+key: {+$fragmentSpreads: mixed, ...}]
+    ? Partial<TVariables>
+    : TVariables;
+
+type RefetchFnBase<TVars, TOptions> = (
+  vars: TVars,
+  options?: TOptions,
+) => Disposable;
+
+export type RefetchFn<TVariables, TKey, TOptions = Options> = RefetchFnBase<
+  RefetchVariables<TVariables, TKey>,
+  TOptions,
+>;
+
+export type ReturnType<
+  TVariables,
+  TData,
+  TKey: ?{+$fragmentSpreads: mixed, ...},
+> = [
+  // NOTE: This type ensures that the type of the returned data is either:
+  //   - nullable if the provided ref type is nullable
+  //   - non-nullable if the provided ref type is non-nullable
+  [+key: TKey] extends [+key: {+$fragmentSpreads: mixed, ...}] ? TData : ?TData,
+  RefetchFn<TVariables, TKey>,
 ];
 
-// This separate type export is only needed as long as we are injecting
-// a separate hooks implementation in ./HooksImplementation -- it can
-// be removed after we stop doing that.
 export type UseRefetchableFragmentType = <
-  TQuery: OperationType,
-  TKey: ?{+$data?: mixed, +$fragmentSpreads: FragmentType, ...},
+  TFragmentType: FragmentType,
+  TVariables: Variables,
+  TData,
+  TKey: ?{+$fragmentSpreads: TFragmentType, ...},
 >(
-  fragmentInput: GraphQLTaggedNode,
-  fragmentRef: TKey,
-) => ReturnType<TQuery, TKey>;
+  fragment: RefetchableFragment<TFragmentType, TData, TVariables>,
+  key: TKey,
+) => ReturnType<TVariables, TData, TKey>;
 
-function useRefetchableFragment_LEGACY<
-  TQuery: OperationType,
-  TKey: ?{+$data?: mixed, +$fragmentSpreads: FragmentType, ...},
+hook useRefetchableFragment<
+  TFragmentType: FragmentType,
+  TVariables: Variables,
+  TData,
+  TKey: ?{+$fragmentSpreads: TFragmentType, ...},
 >(
-  fragmentInput: GraphQLTaggedNode,
+  fragmentInput: RefetchableFragment<TFragmentType, TData, TVariables>,
   fragmentRef: TKey,
-): ReturnType<TQuery, TKey> {
+): ReturnType<TVariables, TData, TKey> {
   const fragmentNode = getFragment(fragmentInput);
   useStaticFragmentNodeWarning(
     fragmentNode,
     'first argument of useRefetchableFragment()',
   );
-  const {fragmentData, refetch} = useRefetchableFragmentNode<TQuery, TKey>(
-    fragmentNode,
-    fragmentRef,
-    'useRefetchableFragment()',
-  );
+  const {fragmentData, refetch} = useRefetchableFragmentInternal<
+    {variables: TVariables, response: TData},
+    {data?: TData},
+  >(fragmentNode, fragmentRef, 'useRefetchableFragment()');
   if (__DEV__) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
+    // $FlowFixMe[react-rule-hook]
     useDebugValue({fragment: fragmentNode.name, data: fragmentData});
   }
-  /* $FlowExpectedError[prop-missing] : Exposed options is a subset of internal
-   * options */
-  return [fragmentData, (refetch: RefetchFnDynamic<TQuery, TKey>)];
-}
-
-function useRefetchableFragment<
-  TQuery: OperationType,
-  TKey: ?{+$data?: mixed, +$fragmentSpreads: FragmentType, ...},
->(
-  fragmentInput: GraphQLTaggedNode,
-  parentFragmentRef: TKey,
-): ReturnType<TQuery, TKey> {
-  const impl = HooksImplementation.get();
-  if (impl) {
-    return impl.useRefetchableFragment<TQuery, TKey>(
-      fragmentInput,
-      parentFragmentRef,
-    );
-  } else {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useRefetchableFragment_LEGACY(fragmentInput, parentFragmentRef);
-  }
+  // $FlowFixMe[incompatible-return]
+  // $FlowFixMe[prop-missing]
+  return [fragmentData, refetch];
 }
 
 module.exports = useRefetchableFragment;

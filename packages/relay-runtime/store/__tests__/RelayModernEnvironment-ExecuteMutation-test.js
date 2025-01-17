@@ -10,6 +10,8 @@
  */
 
 'use strict';
+import type {GraphQLResponse} from '../../network/RelayNetworkTypes';
+import type {Snapshot} from '../RelayStoreTypes';
 
 const {
   MultiActorEnvironment,
@@ -25,6 +27,7 @@ const {
 const {createReaderSelector} = require('../RelayModernSelector');
 const RelayModernStore = require('../RelayModernStore');
 const RelayRecordSource = require('../RelayRecordSource');
+const {RelayFeatureFlags} = require('relay-runtime');
 const {
   disallowWarnings,
   expectWarningWillFire,
@@ -51,6 +54,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
     let source;
     let store;
     let subject;
+    let networkSource;
     let variables;
     let queryVariables;
 
@@ -119,10 +123,15 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryVariables,
         );
 
-        fetch = jest.fn((_query, _variables, _cacheConfig) =>
-          RelayObservable.create(sink => {
-            subject = sink;
-          }),
+        // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
+        networkSource = RelayObservable.create(sink => {
+          subject = sink;
+        });
+        // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
+        fetch = jest.fn(
+          (_query, _variables, _cacheConfig) =>
+            // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
+            networkSource,
         );
         source = RelayRecordSource.create();
         store = new RelayModernStore(source);
@@ -139,9 +148,9 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
                 network: RelayNetwork.create(fetch),
                 store,
               });
-        complete = jest.fn();
-        error = jest.fn();
-        next = jest.fn();
+        complete = jest.fn<[], mixed>();
+        error = jest.fn<[Error], mixed>();
+        next = jest.fn<[GraphQLResponse], mixed>();
         callbacks = {complete, error, next};
       });
 
@@ -161,7 +170,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         environment
@@ -195,7 +204,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         environment
@@ -231,7 +240,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         const subscription = environment
@@ -262,7 +271,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         environment
@@ -312,7 +321,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         environment
@@ -370,7 +379,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         environment
@@ -408,7 +417,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         environment
@@ -446,7 +455,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           queryOperation.request,
         );
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         const subscription = environment
@@ -511,7 +520,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         });
 
         const snapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(snapshot, callback);
 
         expectWarningWillFire(
@@ -541,6 +550,66 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         });
         // and thus the snapshot has missing data
         expect(callback.mock.calls[0][0].isMissingData).toEqual(true);
+      });
+
+      it('reverts the optimistic update and commits the prefetched server payload', () => {
+        RelayFeatureFlags.PROCESS_OPTIMISTIC_UPDATE_BEFORE_SUBSCRIPTION = true;
+        const selector = createReaderSelector(
+          CommentFragment,
+          commentID,
+          {},
+          queryOperation.request,
+        );
+        const snapshot = environment.lookup(selector);
+        const callback = jest.fn<[Snapshot], void>();
+        environment.subscribe(snapshot, callback);
+
+        // This is to mock the prefetched payload that exists before the network source is being subscribed to
+        networkSource = RelayObservable.create(sink => {
+          sink.next({
+            data: {
+              commentCreate: {
+                comment: {
+                  id: commentID,
+                  body: {
+                    text: 'Gave Relay',
+                  },
+                },
+              },
+            },
+          });
+          sink.complete();
+        });
+
+        callback.mockClear();
+        environment
+          .executeMutation({
+            operation,
+            optimisticUpdater: _store => {
+              const body = _store.get(commentID)?.getLinkedRecord('body');
+              // When optimistic updater happens after the payload is commited, these records already exist
+              if (body != null) {
+                body.setValue('Give Relay', 'text');
+              } else {
+                const comment = _store.create(commentID, 'Comment');
+                comment.setValue(commentID, 'id');
+                const body = _store.create(commentID + '.text', 'Text');
+                comment.setLinkedRecord(body, 'body');
+                body.setValue('Give Relay', 'text');
+              }
+            },
+          })
+          .subscribe(callbacks);
+
+        expect(complete).toBeCalled();
+        expect(error).not.toBeCalled();
+        expect(callback.mock.calls.length).toBe(2);
+        expect(callback.mock.calls[1][0].data).toEqual({
+          id: commentID,
+          body: {
+            text: 'Gave Relay',
+          },
+        });
       });
     });
   },

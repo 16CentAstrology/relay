@@ -6,15 +6,25 @@
  */
 
 use common::ArgumentName;
+use common::InterfaceName;
+use common::ObjectName;
 use common::ScalarName;
+use common::UnionName;
+use graphql_ir::ExecutableDefinitionName;
 use graphql_ir::FragmentDefinitionName;
 use intern::string_key::StringKey;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, serde::Serialize)]
+#[serde(tag = "type")]
 pub enum ValidationMessage {
     #[error("Invalid @match selection: all selections should be fragment spreads with @module.")]
     InvalidMatchNotAllSelectionsFragmentSpreadWithModule,
+
+    #[error(
+        "Invalid @match selection: @alias may not be applied to fragment spreads within @match."
+    )]
+    InvalidAliasWithinMatch,
 
     #[error("'{name}' should be defined on the server schema.")]
     MissingServerSchemaDefinition { name: StringKey },
@@ -63,7 +73,7 @@ pub enum ValidationMessage {
         "Invalid @module selection: documents with multiple fields containing 3D selections must specify a unique 'key' value for each field: use '{parent_name} @match(key: \"{document_name}_<localName>\")'."
     )]
     InvalidModuleSelectionWithoutKey {
-        document_name: StringKey,
+        document_name: ExecutableDefinitionName,
         parent_name: StringKey,
     },
 
@@ -81,7 +91,9 @@ pub enum ValidationMessage {
     #[error(
         "Expected the 'key' argument of @match to be a literal string starting with the document name, e.g. '{document_name}_<localName>'."
     )]
-    InvalidMatchKeyArgument { document_name: StringKey },
+    InvalidMatchKeyArgument {
+        document_name: ExecutableDefinitionName,
+    },
 
     #[error(
         "@match used on incompatible field '{field_name}'. @match may only be used with fields that accept a 'supported: [String]' argument."
@@ -104,7 +116,28 @@ pub enum ValidationMessage {
     InvalidMatchNoModuleSelection,
 
     #[error(
-        "@match on a field without the `supported` argument is a no-op, please remove the `@match`."
+        "@match without a `key` argument and on a field without the `supported` argument is a no-op, please remove the `@match`."
     )]
     InvalidMatchWithNoSupportedArgument,
+
+    #[error(
+        "Invalid fragment spread '...{spread_name}'. Fragments for interface '{parent_interface}' should be backed by relay resolver models."
+    )]
+    MissingRelayResolverModelForInterface {
+        spread_name: FragmentDefinitionName,
+        parent_interface: InterfaceName,
+    },
+
+    #[error(
+        "Invalid fragment spread '...{spread_name}'. Fragments for union '{parent_union}' should be backed by relay resolver models."
+    )]
+    MissingRelayResolverModelForUnion {
+        spread_name: FragmentDefinitionName,
+        parent_union: UnionName,
+    },
+
+    #[error(
+        "@module was used on a fragment with a concrete parent type: '{object_name}'. The parent type should be an interface or union."
+    )]
+    InvalidModuleOnConcreteParentType { object_name: ObjectName },
 }

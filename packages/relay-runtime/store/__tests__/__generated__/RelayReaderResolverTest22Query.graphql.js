@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<4f5d83c4264a1f7ed9f6c9d20e831870>>
+ * @generated SignedSource<<ea210685c7d9815bf58831d985d9642d>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,23 +19,25 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { UserProfilePictureWithRuntimeArgumentResolver$key } from "./../resolvers/__generated__/UserProfilePictureWithRuntimeArgumentResolver.graphql";
-import {user_profile_picture_uri_with_scale_and_additional_argument as userUserProfilePictureUriWithScaleAndAdditionalArgumentResolver} from "../resolvers/UserProfilePictureWithRuntimeArgumentResolver.js";
-// Type assertion validating that `userUserProfilePictureUriWithScaleAndAdditionalArgumentResolver` resolver is correctly implemented.
+import {user_profile_picture_uri_with_scale_and_additional_argument as userUserProfilePictureUriWithScaleAndAdditionalArgumentResolverType} from "../resolvers/UserProfilePictureWithRuntimeArgumentResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `userUserProfilePictureUriWithScaleAndAdditionalArgumentResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(userUserProfilePictureUriWithScaleAndAdditionalArgumentResolver: (
-  rootKey: UserProfilePictureWithRuntimeArgumentResolver$key, 
+(userUserProfilePictureUriWithScaleAndAdditionalArgumentResolverType: (
+  rootKey: UserProfilePictureWithRuntimeArgumentResolver$key,
   args: {|
     name: ?string,
     scale: ?number,
-  |}, 
-) => mixed);
+  |},
+  context: TestResolverContextType,
+) => ?string);
 export type RelayReaderResolverTest22Query$variables = {|
   name?: ?string,
   scale: number,
 |};
 export type RelayReaderResolverTest22Query$data = {|
   +me: ?{|
-    +profile_picture: ?$Call<<R>((...empty[]) => R) => R, typeof userUserProfilePictureUriWithScaleAndAdditionalArgumentResolver>,
+    +profile_picture: ?string,
   |},
 |};
 export type RelayReaderResolverTest22Query = {|
@@ -153,7 +155,8 @@ return {
               "abstractKey": null
             },
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           },
           {
             "alias": null,

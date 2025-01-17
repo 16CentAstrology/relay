@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<aab29fd74227eb3a21ea7b4cdfb11478>>
+ * @generated SignedSource<<6f8710960ff2e2281f4143e91ee93f66>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -19,15 +19,18 @@
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
 import type { CounterPlusOneResolver$key } from "./CounterPlusOneResolver.graphql";
-import {counter_plus_one as queryCounterPlusOneResolver} from "../CounterPlusOneResolver.js";
-// Type assertion validating that `queryCounterPlusOneResolver` resolver is correctly implemented.
+import {counter_plus_one as queryCounterPlusOneResolverType} from "../CounterPlusOneResolver.js";
+import type { TestResolverContextType } from "../../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryCounterPlusOneResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryCounterPlusOneResolver: (
-  rootKey: CounterPlusOneResolver$key, 
-) => mixed);
+(queryCounterPlusOneResolverType: (
+  rootKey: CounterPlusOneResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?number);
 export type ResolverGCTestRegularReadsLiveQuery$variables = {||};
 export type ResolverGCTestRegularReadsLiveQuery$data = {|
-  +counter_plus_one: ?$Call<<R>((...empty[]) => R) => R, typeof queryCounterPlusOneResolver>,
+  +counter_plus_one: ?number,
 |};
 export type ResolverGCTestRegularReadsLiveQuery = {|
   response: ResolverGCTestRegularReadsLiveQuery$data,
@@ -112,14 +115,16 @@ var node/*: ConcreteRequest*/ = {
                 "abstractKey": null
               },
               "kind": "RelayResolver",
-              "storageKey": null
+              "storageKey": null,
+              "isOutputType": true
             }
           ],
           "type": "Query",
           "abstractKey": null
         },
         "kind": "RelayResolver",
-        "storageKey": null
+        "storageKey": null,
+        "isOutputType": true
       }
     ]
   },

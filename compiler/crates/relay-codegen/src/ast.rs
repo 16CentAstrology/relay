@@ -6,6 +6,7 @@
  */
 
 use fnv::FnvBuildHasher;
+use graphql_ir::ExecutableDefinitionName;
 use graphql_syntax::FloatValue;
 use graphql_syntax::OperationKind;
 use indexmap::IndexSet;
@@ -18,12 +19,11 @@ pub struct ObjectEntry {
     pub value: Primitive,
 }
 
-/// A helper for creating Vec<ObjectEntry>
+/// A helper for creating `Vec<ObjectEntry>`
 /// For now, field names are defined in `CODEGEN_CONSTANTS
 #[macro_export]
 macro_rules! object {
     { $ ( $(:$func: expr,)* $key:ident: $value:expr,)* } => ({
-        use crate::constants::CODEGEN_CONSTANTS;
         vec![
             $(
                 $(
@@ -61,11 +61,46 @@ impl Ast {
     }
 }
 
-#[derive(Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum ModuleImportName {
+    Default(StringKey),
+    Named {
+        name: StringKey,
+        import_as: Option<StringKey>,
+    },
+}
+
+#[derive(Eq, PartialEq, Hash, PartialOrd, Ord, Debug, Clone)]
 pub struct JSModuleDependency {
     pub path: StringKey,
-    pub named_import: Option<StringKey>,
-    pub import_as: Option<StringKey>,
+    pub import_name: ModuleImportName,
+}
+
+#[derive(Eq, PartialEq, Hash, PartialOrd, Ord, Debug, Clone)]
+pub struct ResolverModuleReference {
+    pub field_type: StringKey,
+    pub resolver_function_name: ModuleImportName,
+}
+
+#[derive(Eq, PartialEq, Hash, Debug)]
+pub enum JSModule {
+    Reference(ResolverModuleReference),
+    Dependency(JSModuleDependency),
+}
+
+#[derive(Eq, PartialEq, Hash, PartialOrd, Ord, Debug, Clone)]
+pub enum GraphQLModuleDependency {
+    Name(ExecutableDefinitionName),
+    Path {
+        name: ExecutableDefinitionName,
+        path: StringKey,
+    },
+}
+
+#[derive(Eq, PartialEq, Hash, Debug)]
+pub enum ResolverJSFunction {
+    Module(JSModuleDependency),
+    PropertyLookup(String),
 }
 
 #[derive(Eq, PartialEq, Hash, Debug)]
@@ -79,8 +114,9 @@ pub enum Primitive {
     Null,
     StorageKey(StringKey, AstKey),
     RawString(String),
-    GraphQLModuleDependency(StringKey),
+    GraphQLModuleDependency(GraphQLModuleDependency),
     JSModuleDependency(JSModuleDependency),
+    ResolverModuleReference(ResolverModuleReference),
 
     // Don't include the value in the output when
     // skip_printing_nulls is enabled
@@ -90,15 +126,10 @@ pub enum Primitive {
         module: StringKey,
     },
     RelayResolverModel {
-        graphql_module: StringKey,
-        js_module: JSModuleDependency,
+        graphql_module_name: StringKey,
+        graphql_module_path: StringKey,
+        resolver_fn: ResolverJSFunction,
         injected_field_name_details: Option<(StringKey, bool)>,
-    },
-    RelayResolverWeakObjectWrapper {
-        resolver: Box<Primitive>,
-        key: StringKey,
-        plural: bool,
-        live: bool,
     },
 }
 

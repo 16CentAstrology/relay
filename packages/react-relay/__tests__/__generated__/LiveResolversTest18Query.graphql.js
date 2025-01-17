@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<8ec1eb2dfe9f87eaced6ba9c69e1b1e7>>
+ * @generated SignedSource<<284691301e02e53dc0d659b29c4dc630>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,14 +18,18 @@
 
 /*::
 import type { ClientRequest, ClientQuery } from 'relay-runtime';
-import type { LiveState } from "relay-runtime/store/experimental-live-resolvers/LiveResolverStore";
-import {live_resolver_throws as queryLiveResolverThrowsResolver} from "../../../relay-runtime/store/__tests__/resolvers/QueryLiveResolverThrows.js";
-// Type assertion validating that `queryLiveResolverThrowsResolver` resolver is correctly implemented.
+import type { LiveState } from "relay-runtime";
+import {live_resolver_throws as queryLiveResolverThrowsResolverType} from "../../../relay-runtime/store/__tests__/resolvers/QueryLiveResolverThrows.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryLiveResolverThrowsResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryLiveResolverThrowsResolver: () => LiveState<any>);
+(queryLiveResolverThrowsResolverType: (
+  args: void,
+  context: TestResolverContextType,
+) => LiveState<?mixed>);
 export type LiveResolversTest18Query$variables = {||};
 export type LiveResolversTest18Query$data = {|
-  +live_resolver_throws: ?$Call<$Call<<R>((...empty[]) => R) => R, typeof queryLiveResolverThrowsResolver>["read"]>,
+  +live_resolver_throws: ?ReturnType<ReturnType<typeof queryLiveResolverThrowsResolverType>["read"]>,
 |};
 export type LiveResolversTest18Query = {|
   response: LiveResolversTest18Query$data,
@@ -72,7 +76,8 @@ var node/*: ClientRequest*/ = {
             "args": null,
             "fragment": null,
             "kind": "RelayResolver",
-            "storageKey": null
+            "storageKey": null,
+            "isOutputType": true
           }
         ]
       }

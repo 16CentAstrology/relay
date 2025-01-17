@@ -11,8 +11,8 @@
 
 'use strict';
 import type {NormalizationSplitOperation} from '../../util/NormalizationNode';
-
 import type {NormalizationRootNode} from '../../util/NormalizationNode';
+import type {LogEvent, Snapshot} from '../RelayStoreTypes';
 import type {RequestParameters} from 'relay-runtime/util/RelayConcreteNode';
 import type {
   CacheConfig,
@@ -35,8 +35,12 @@ const {getSingularSelector} = require('../RelayModernSelector');
 const RelayModernStore = require('../RelayModernStore');
 const RelayRecordSource = require('../RelayRecordSource');
 const nullthrows = require('nullthrows');
-const {disallowWarnings} = require('relay-test-utils-internal');
+const {
+  disallowWarnings,
+  injectPromisePolyfill__DEPRECATED,
+} = require('relay-test-utils-internal');
 
+injectPromisePolyfill__DEPRECATED();
 disallowWarnings();
 
 function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
@@ -142,9 +146,9 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
           variables = {id: '1'};
           operation = createOperationDescriptor(query, variables);
 
-          complete = jest.fn();
-          error = jest.fn();
-          next = jest.fn();
+          complete = jest.fn<$ReadOnlyArray<mixed>, mixed>();
+          error = jest.fn<$ReadOnlyArray<Error>, mixed>();
+          next = jest.fn<$ReadOnlyArray<mixed>, mixed>();
           callbacks = {complete, error, next};
           fetch = (
             _query: RequestParameters,
@@ -152,7 +156,6 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             _cacheConfig: CacheConfig,
           ) => {
             // $FlowFixMe[missing-local-annot] Error found while enabling LTI on this file
-            // $FlowFixMe[underconstrained-implicit-instantiation]
             return RelayObservable.create(sink => {
               dataSource = sink;
             });
@@ -166,7 +169,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             get: jest.fn(),
           };
           source = RelayRecordSource.create();
-          logger = jest.fn();
+          logger = jest.fn<[LogEvent], void>();
           store = new RelayModernStore(source, {
             log: logger,
           });
@@ -186,7 +189,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
                 });
 
           const operationSnapshot = environment.lookup(operation.fragment);
-          operationCallback = jest.fn();
+          operationCallback = jest.fn<[Snapshot], void>();
           environment.subscribe(operationSnapshot, operationCallback);
         });
 
@@ -252,7 +255,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             outerRendererASelector,
           );
           expect(outerRendererASnapshot.isMissingData).toBe(true);
-          const outerRendererACallback = jest.fn();
+          const outerRendererACallback = jest.fn<[Snapshot], void>();
           environment.subscribe(outerRendererASnapshot, outerRendererACallback);
 
           const outerRendererBSelector = nullthrows(
@@ -265,7 +268,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             outerRendererBSelector,
           );
           expect(outerRendererBSnapshot.isMissingData).toBe(true);
-          const outerRendererBCallback = jest.fn();
+          const outerRendererBCallback = jest.fn<[Snapshot], void>();
           environment.subscribe(outerRendererBSnapshot, outerRendererBCallback);
 
           logger.mockClear();
@@ -397,7 +400,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             outerRendererASelector,
           );
           expect(outerRendererASnapshot.isMissingData).toBe(true);
-          const outerRendererACallback = jest.fn();
+          const outerRendererACallback = jest.fn<[Snapshot], void>();
           environment.subscribe(outerRendererASnapshot, outerRendererACallback);
 
           const outerRendererBSelector = nullthrows(
@@ -410,7 +413,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             outerRendererBSelector,
           );
           expect(outerRendererBSnapshot.isMissingData).toBe(true);
-          const outerRendererBCallback = jest.fn();
+          const outerRendererBCallback = jest.fn<[Snapshot], void>();
           environment.subscribe(outerRendererBSnapshot, outerRendererBCallback);
 
           logger.mockClear();
@@ -454,7 +457,6 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             user: {
               innerRenderer: {
                 __fragmentOwner: operation.request,
-                __isWithinUnmatchedTypeRefinement: false,
                 __fragmentPropName: 'name',
                 __fragments: {
                   RelayModernEnvironmentExecuteWithSiblingAndNestedModuleTestPlainUserNameRenderer_name:
@@ -634,7 +636,7 @@ function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
             outerRendererASelector,
           );
           expect(outerRendererASnapshot.isMissingData).toBe(true);
-          const outerRendererACallback = jest.fn();
+          const outerRendererACallback = jest.fn<[Snapshot], void>();
           environment.subscribe(outerRendererASnapshot, outerRendererACallback);
 
           next.mockClear();

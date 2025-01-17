@@ -10,9 +10,12 @@
  */
 
 'use strict';
+import type {GraphQLResponse} from '../../network/RelayNetworkTypes';
+import type {Snapshot} from '../RelayStoreTypes';
 import type {
   HandleFieldPayload,
   RecordSourceProxy,
+  TaskPriority,
 } from 'relay-runtime/store/RelayStoreTypes';
 import type {RequestParameters} from 'relay-runtime/util/RelayConcreteNode';
 import type {
@@ -91,9 +94,9 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           },
         };
 
-        complete = jest.fn();
-        error = jest.fn();
-        next = jest.fn();
+        complete = jest.fn<[], mixed>();
+        error = jest.fn<[Error], mixed>();
+        next = jest.fn<[GraphQLResponse], mixed>();
         callbacks = {complete, error, next};
         fetch = (
           _query: RequestParameters,
@@ -101,16 +104,13 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           _cacheConfig: CacheConfig,
         ) => {
           // $FlowFixMe[missing-local-annot] Error found while enabling LTI on this file
-          // $FlowFixMe[underconstrained-implicit-instantiation]
           return RelayObservable.create(sink => {
             dataSource = sink;
           });
         };
         source = RelayRecordSource.create();
         store = new RelayModernStore(source);
-        handlerProvider = (
-          name: string | $TEMPORARY$string<'name_handler'>,
-        ) => {
+        handlerProvider = (name: string) => {
           switch (name) {
             case 'name_handler':
               return NameHandler;
@@ -134,7 +134,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('calls next() and publishes the initial payload to the store', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -163,7 +163,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('processes deferred payloads', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -204,7 +204,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('processes deferred payloads mixed with extensions-only payloads', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -255,6 +255,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         let tasks;
         let scheduler;
         let runTask;
+        const priorityFn = jest.fn();
 
         beforeEach(() => {
           taskID = 0;
@@ -263,7 +264,8 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
             cancel: (id: string) => {
               tasks.delete(id);
             },
-            schedule: (task: () => void) => {
+            schedule: (task: () => void, priority?: TaskPriority) => {
+              priorityFn(priority);
               const id = String(taskID++);
               tasks.set(id, task);
               return id;
@@ -295,7 +297,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
         it('processes deferred payloads with scheduling', () => {
           const initialSnapshot = environment.lookup(selector);
-          const callback = jest.fn();
+          const callback = jest.fn<[Snapshot], void>();
           environment.subscribe(initialSnapshot, callback);
 
           environment.execute({operation}).subscribe(callbacks);
@@ -310,6 +312,9 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           expect(next).toBeCalledTimes(0);
           expect(callback).toBeCalledTimes(0);
           expect(tasks.size).toBe(1);
+
+          expect(priorityFn).toBeCalledTimes(1);
+          expect(priorityFn.mock.calls[0][0]).toBe('default');
           runTask();
           expect(tasks.size).toBe(0);
           expect(next).toBeCalledTimes(1);
@@ -317,6 +322,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           jest.runAllTimers();
           next.mockClear();
           callback.mockClear();
+          priorityFn.mockClear();
 
           dataSource.next({
             data: {
@@ -331,6 +337,8 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
           expect(next).toBeCalledTimes(0);
           expect(callback).toBeCalledTimes(0);
           expect(tasks.size).toBe(1);
+          expect(priorityFn).toBeCalledTimes(1);
+          expect(priorityFn.mock.calls[0][0]).toBe('low');
           runTask();
           expect(tasks.size).toBe(0);
 
@@ -349,7 +357,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
         it('processes deferred payloads that are available synchronously within the same scheduler step', () => {
           const initialSnapshot = environment.lookup(selector);
-          const callback = jest.fn();
+          const callback = jest.fn<[Snapshot], void>();
           environment.subscribe(initialSnapshot, callback);
 
           environment.execute({operation}).subscribe(callbacks);
@@ -399,7 +407,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
         it('cancels processing of deferred payloads with scheduling', () => {
           const initialSnapshot = environment.lookup(selector);
-          const callback = jest.fn();
+          const callback = jest.fn<[Snapshot], void>();
           environment.subscribe(initialSnapshot, callback);
 
           const subscription = environment
@@ -448,7 +456,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('calls complete() when server completes after deferred payload resolves', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -488,7 +496,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('calls complete() when server completes before deferred payload resolves', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -517,7 +525,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('calls error() when server errors after deferred payload resolves', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -559,7 +567,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('calls error() when server errors before deferred payload resolves', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -590,7 +598,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('calls error() when deferred payload is missing data', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);
@@ -633,7 +641,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
 
       it('warns if executed in non-streaming mode and processes deferred selections', () => {
         const initialSnapshot = environment.lookup(selector);
-        const callback = jest.fn();
+        const callback = jest.fn<[Snapshot], void>();
         environment.subscribe(initialSnapshot, callback);
 
         environment.execute({operation}).subscribe(callbacks);

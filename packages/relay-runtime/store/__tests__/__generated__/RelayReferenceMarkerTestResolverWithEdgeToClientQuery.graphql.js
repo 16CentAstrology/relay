@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<e78f7619f5f7dc77215bf5f239da913e>>
+ * @generated SignedSource<<62709e70d1e5e472c7a1b4fe632551e5>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,16 +18,22 @@
 
 /*::
 import type { ConcreteRequest, Query } from 'relay-runtime';
+import type { DataID } from "relay-runtime";
 import type { QueryAllAstrologicalSignsResolver$key } from "./../resolvers/__generated__/QueryAllAstrologicalSignsResolver.graphql";
-import {all_astrological_signs as queryAllAstrologicalSignsResolver} from "../resolvers/QueryAllAstrologicalSignsResolver.js";
-// Type assertion validating that `queryAllAstrologicalSignsResolver` resolver is correctly implemented.
+import {all_astrological_signs as queryAllAstrologicalSignsResolverType} from "../resolvers/QueryAllAstrologicalSignsResolver.js";
+import type { TestResolverContextType } from "../../../mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryAllAstrologicalSignsResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryAllAstrologicalSignsResolver: (
-  rootKey: QueryAllAstrologicalSignsResolver$key, 
-) => mixed);
+(queryAllAstrologicalSignsResolverType: (
+  rootKey: QueryAllAstrologicalSignsResolver$key,
+  args: void,
+  context: TestResolverContextType,
+) => ?$ReadOnlyArray<{|
+  +id: DataID,
+|}>);
 export type RelayReferenceMarkerTestResolverWithEdgeToClientQuery$variables = {||};
 export type RelayReferenceMarkerTestResolverWithEdgeToClientQuery$data = {|
-  +all_astrological_signs: ?$ReadOnlyArray<?{|
+  +all_astrological_signs: ?$ReadOnlyArray<{|
     +id: string,
   |}>,
 |};
@@ -44,6 +50,18 @@ var v0 = {
   "kind": "ScalarField",
   "name": "id",
   "storageKey": null
+},
+v1 = {
+  "alias": null,
+  "args": null,
+  "concreteType": "AstrologicalSign",
+  "kind": "LinkedField",
+  "name": "all_astrological_signs",
+  "plural": true,
+  "selections": [
+    (v0/*: any*/)
+  ],
+  "storageKey": null
 };
 return {
   "fragment": {
@@ -57,6 +75,7 @@ return {
       {
         "kind": "ClientEdgeToClientObject",
         "concreteType": "AstrologicalSign",
+        "modelResolvers": null,
         "backingField": {
           "alias": null,
           "args": null,
@@ -70,18 +89,7 @@ return {
           "resolverModule": require('./../resolvers/QueryAllAstrologicalSignsResolver').all_astrological_signs,
           "path": "all_astrological_signs"
         },
-        "linkedField": {
-          "alias": null,
-          "args": null,
-          "concreteType": "AstrologicalSign",
-          "kind": "LinkedField",
-          "name": "all_astrological_signs",
-          "plural": true,
-          "selections": [
-            (v0/*: any*/)
-          ],
-          "storageKey": null
-        }
+        "linkedField": (v1/*: any*/)
       }
     ],
     "type": "Query",
@@ -94,36 +102,41 @@ return {
     "name": "RelayReferenceMarkerTestResolverWithEdgeToClientQuery",
     "selections": [
       {
-        "name": "all_astrological_signs",
-        "args": null,
-        "fragment": {
-          "kind": "InlineFragment",
-          "selections": [
-            {
-              "alias": null,
-              "args": null,
-              "concreteType": "User",
-              "kind": "LinkedField",
-              "name": "me",
-              "plural": false,
-              "selections": [
-                {
-                  "alias": null,
-                  "args": null,
-                  "kind": "ScalarField",
-                  "name": "__typename",
-                  "storageKey": null
-                },
-                (v0/*: any*/)
-              ],
-              "storageKey": null
-            }
-          ],
-          "type": "Query",
-          "abstractKey": null
+        "kind": "ClientEdgeToClientObject",
+        "backingField": {
+          "name": "all_astrological_signs",
+          "args": null,
+          "fragment": {
+            "kind": "InlineFragment",
+            "selections": [
+              {
+                "alias": null,
+                "args": null,
+                "concreteType": "User",
+                "kind": "LinkedField",
+                "name": "me",
+                "plural": false,
+                "selections": [
+                  {
+                    "alias": null,
+                    "args": null,
+                    "kind": "ScalarField",
+                    "name": "__typename",
+                    "storageKey": null
+                  },
+                  (v0/*: any*/)
+                ],
+                "storageKey": null
+              }
+            ],
+            "type": "Query",
+            "abstractKey": null
+          },
+          "kind": "RelayResolver",
+          "storageKey": null,
+          "isOutputType": false
         },
-        "kind": "RelayResolver",
-        "storageKey": null
+        "linkedField": (v1/*: any*/)
       }
     ]
   },

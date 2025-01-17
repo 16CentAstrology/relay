@@ -10,8 +10,9 @@
  */
 
 'use strict';
-
+import type {GraphQLResponse} from '../../network/RelayNetworkTypes';
 import type {NormalizationRootNode} from '../../util/NormalizationNode';
+import type {Snapshot} from '../RelayStoreTypes';
 import type {
   HandleFieldPayload,
   RecordSourceProxy,
@@ -34,7 +35,11 @@ const RelayModernStore = require('../RelayModernStore');
 const RelayRecordSource = require('../RelayRecordSource');
 const nullthrows = require('nullthrows');
 const {disallowWarnings} = require('relay-test-utils-internal');
+const {
+  injectPromisePolyfill__DEPRECATED,
+} = require('relay-test-utils-internal');
 
+injectPromisePolyfill__DEPRECATED();
 disallowWarnings();
 
 describe('execute() a query with plural @match', () => {
@@ -113,9 +118,9 @@ describe('execute() a query with plural @match', () => {
       },
     };
 
-    complete = jest.fn();
-    error = jest.fn();
-    next = jest.fn();
+    complete = jest.fn<[], mixed>();
+    error = jest.fn<[Error], mixed>();
+    next = jest.fn<[GraphQLResponse], mixed>();
     callbacks = {complete, error, next};
     fetch = (
       _query: RequestParameters,
@@ -123,7 +128,6 @@ describe('execute() a query with plural @match', () => {
       _cacheConfig: CacheConfig,
     ) => {
       // $FlowFixMe[missing-local-annot] Error found while enabling LTI on this file
-      // $FlowFixMe[underconstrained-implicit-instantiation]
       return RelayObservable.create(sink => {
         dataSource = sink;
       });
@@ -151,7 +155,7 @@ describe('execute() a query with plural @match', () => {
     });
 
     const operationSnapshot = environment.lookup(operation.fragment);
-    operationCallback = jest.fn();
+    operationCallback = jest.fn<[Snapshot], void>();
     environment.subscribe(operationSnapshot, operationCallback);
   });
 
@@ -196,7 +200,7 @@ describe('execute() a query with plural @match', () => {
       node: {
         nameRenderers: [
           {
-            __id: 'client:1:nameRenderers(supported:["PlainUserNameRenderer","MarkdownUserNameRenderer"]):0',
+            __id: 'client:1:nameRenderers(supported:"34hjiS"):0',
 
             __fragmentPropName: 'name',
 
@@ -206,7 +210,6 @@ describe('execute() a query with plural @match', () => {
             },
 
             __fragmentOwner: operation.request,
-            __isWithinUnmatchedTypeRefinement: false,
             __module_component: 'MarkdownUserNameRenderer.react',
           },
         ],
@@ -270,7 +273,7 @@ describe('execute() a query with plural @match', () => {
     // initial results tested above
     const initialMatchSnapshot = environment.lookup(matchSelector);
     expect(initialMatchSnapshot.isMissingData).toBe(true);
-    const matchCallback = jest.fn();
+    const matchCallback = jest.fn<[Snapshot], void>();
     environment.subscribe(initialMatchSnapshot, matchCallback);
 
     resolveFragment(markdownRendererNormalizationFragment);

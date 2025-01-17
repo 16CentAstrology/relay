@@ -40,7 +40,7 @@ describe.skip('ReactRelayFragmentContainer-react-double-effects-test', () => {
     // Set up mocks
     jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
     jest.mock('warning');
-    renderSpy = jest.fn();
+    renderSpy = jest.fn<$ReadOnlyArray<mixed>, mixed>();
 
     // Set up environment and base data
     environment = createMockEnvironment();
@@ -96,7 +96,11 @@ describe.skip('ReactRelayFragmentContainer-react-double-effects-test', () => {
       return user.name;
     };
 
-    const FragmentContainer = createContainer(FragmentComponent, {
+    const FragmentContainer = createContainer<
+      any,
+      void,
+      typeof FragmentComponent,
+    >(FragmentComponent, {
       // eslint-disable-next-line relay/graphql-naming
       user: gqlFragment,
     });

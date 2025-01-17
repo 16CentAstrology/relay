@@ -28,16 +28,17 @@ extend type User {
 fragment Foo_user on User {
   ...HobbitNameResolverFragment_name @__RelayResolverMetadata
   # RelayResolverMetadata {
-  #     field_parent_type: "User",
+  #     field_id: FieldID(527),
   #     import_path: "HobbitNameResolver",
   #     import_name: None,
-  #     field_name: "hobbit_name",
   #     field_alias: None,
   #     field_path: "hobbit_name",
   #     field_arguments: [],
   #     live: false,
-  #     output_type_info: None,
+  #     output_type_info: Legacy,
   #     fragment_data_injection_mode: None,
+  #     type_confirmed: false,
+  #     resolver_type: ResolverModule,
   # }
   
 }
@@ -46,16 +47,17 @@ fragment HobbitNameResolverFragment_name on User {
   name
   ...PopStarNameResolverFragment_name @__RelayResolverMetadata
   # RelayResolverMetadata {
-  #     field_parent_type: "User",
+  #     field_id: FieldID(526),
   #     import_path: "PopStarNameResolver",
   #     import_name: None,
-  #     field_name: "pop_star_name",
   #     field_alias: None,
   #     field_path: "pop_star_name",
   #     field_arguments: [],
   #     live: false,
-  #     output_type_info: None,
+  #     output_type_info: Legacy,
   #     fragment_data_injection_mode: None,
+  #     type_confirmed: false,
+  #     resolver_type: ResolverModule,
   # }
   
 }

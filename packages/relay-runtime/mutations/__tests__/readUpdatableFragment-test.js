@@ -10,7 +10,14 @@
  */
 
 'use strict';
-
+import type {
+  GraphQLResponse,
+  LogRequestInfoFunction,
+  UploadableMap,
+} from '../../network/RelayNetworkTypes';
+import type {ObservableFromValue} from '../../network/RelayObservable';
+import type {RequestParameters} from '../../util/RelayConcreteNode';
+import type {CacheConfig, Variables} from '../../util/RelayRuntimeTypes';
 import type {readUpdatableFragmentTestRegularQuery} from './__generated__/readUpdatableFragmentTestRegularQuery.graphql';
 
 const RelayNetwork = require('../../network/RelayNetwork');
@@ -60,7 +67,16 @@ describe('readUpdatableFragment', () => {
     const source = RelayRecordSource.create();
     const store = new RelayModernStore(source);
 
-    const fetch = jest.fn();
+    const fetch = jest.fn<
+      [
+        RequestParameters,
+        Variables,
+        CacheConfig,
+        ?UploadableMap,
+        ?LogRequestInfoFunction,
+      ],
+      ObservableFromValue<GraphQLResponse>,
+    >();
     environment = new RelayModernEnvironment({
       network: RelayNetwork.create(fetch),
       store,
@@ -80,8 +96,9 @@ describe('readUpdatableFragment', () => {
 
     const source = environment.getStore().getSource();
     const selector = operation.fragment;
-    const readOnlyData = ((RelayReader.read(source, selector) // $FlowFixMe[unclear-type] Just to cast it to a better type!
-      .data: any): readUpdatableFragmentTestRegularQuery['response']);
+    const readOnlyData: readUpdatableFragmentTestRegularQuery['response'] =
+      // $FlowFixMe[unclear-type] Just to cast it to a better type!
+      (RelayReader.read(source, selector).data: any);
 
     const me = readOnlyData.me;
     if (me == null) {
@@ -106,8 +123,9 @@ describe('readUpdatableFragment', () => {
       expect(updatableData.firstName2).toEqual('Repulsa');
     });
 
-    const readOnlyData2 = ((RelayReader.read(source, selector) // $FlowFixMe[unclear-type] Just to cast it to a better type!
-      .data: any): readUpdatableFragmentTestRegularQuery['response']);
+    const readOnlyData2: readUpdatableFragmentTestRegularQuery['response'] =
+      // $FlowFixMe[unclear-type] Just to cast it to a better type!
+      (RelayReader.read(source, selector).data: any);
     expect(readOnlyData2?.me?.firstName).toBe('Rita');
     expect(readOnlyData2?.me?.firstName2).toBe('Repulsa');
   });
@@ -125,8 +143,9 @@ describe('readUpdatableFragment', () => {
 
     const source = environment.getStore().getSource();
     const selector = operation.fragment;
-    const readOnlyData = ((RelayReader.read(source, selector) // $FlowFixMe[unclear-type] Just to cast it to a better type!
-      .data: any): readUpdatableFragmentTestRegularQuery['response']);
+    const readOnlyData: readUpdatableFragmentTestRegularQuery['response'] =
+      // $FlowFixMe[unclear-type] Just to cast it to a better type!
+      (RelayReader.read(source, selector).data: any);
 
     const me = readOnlyData.me;
     if (me == null) {
@@ -151,8 +170,9 @@ describe('readUpdatableFragment', () => {
       expect(updatableData.firstName3).toEqual('Zedd');
     });
 
-    const readOnlyData2 = ((RelayReader.read(source, selector) // $FlowFixMe[unclear-type] Just to cast it to a better type!
-      .data: any): readUpdatableFragmentTestRegularQuery['response']);
+    const readOnlyData2: readUpdatableFragmentTestRegularQuery['response'] =
+      // $FlowFixMe[unclear-type] Just to cast it to a better type!
+      (RelayReader.read(source, selector).data: any);
     expect(readOnlyData2?.me?.firstName2).toBe('Lord');
     expect(readOnlyData2?.me?.firstName3).toBe('Zedd');
   });

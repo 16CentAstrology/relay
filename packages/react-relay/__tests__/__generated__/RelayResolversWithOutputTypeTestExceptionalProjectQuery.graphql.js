@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<06bccd56c478724058514b941c1c3f2f>>
+ * @generated SignedSource<<0e2d032ecd3ec51cf764e966e1ee6164>>
  * @flow
  * @lightSyntaxTransform
  * @nogrep
@@ -18,16 +18,18 @@
 
 /*::
 import type { ClientRequest, ClientQuery } from 'relay-runtime';
-import type { LiveState } from "relay-runtime/store/experimental-live-resolvers/LiveResolverStore";
+import type { LiveState } from "relay-runtime";
 import type { RelayResolversWithOutputTypeTestFragment$fragmentType } from "./RelayResolversWithOutputTypeTestFragment.graphql";
-import {todos as queryTodosResolver} from "../../../relay-runtime/store/__tests__/resolvers/QueryTodos.js";
-// Type assertion validating that `queryTodosResolver` resolver is correctly implemented.
+import {todos as queryTodosResolverType} from "../../../relay-runtime/store/__tests__/resolvers/QueryTodos.js";
+import type { TestResolverContextType } from "../../../relay-runtime/mutations/__tests__/TestResolverContextType";
+// Type assertion validating that `queryTodosResolverType` resolver is correctly implemented.
 // A type error here indicates that the type signature of the resolver module is incorrect.
-(queryTodosResolver: (
+(queryTodosResolverType: (
   args: {|
     first: ?number,
     last: ?number,
-  |}, 
+  |},
+  context: TestResolverContextType,
 ) => LiveState<?Query__todos$normalization>);
 import type { Query__todos$normalization } from "./../../../relay-runtime/store/__tests__/resolvers/__generated__/Query__todos$normalization.graphql";
 export type RelayResolversWithOutputTypeTestExceptionalProjectQuery$variables = {||};
@@ -53,7 +55,35 @@ var v0 = [
     "name": "first",
     "value": 10
   }
-];
+],
+v1 = {
+  "kind": "InlineFragment",
+  "selections": [
+    {
+      "name": "self",
+      "args": null,
+      "fragment": {
+        "kind": "InlineFragment",
+        "selections": [
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "todo_id",
+            "storageKey": null
+          }
+        ],
+        "type": "Todo",
+        "abstractKey": null
+      },
+      "kind": "RelayResolver",
+      "storageKey": null,
+      "isOutputType": true
+    }
+  ],
+  "type": "Todo",
+  "abstractKey": null
+};
 return {
   "fragment": {
     "argumentDefinitions": [],
@@ -66,6 +96,7 @@ return {
       {
         "kind": "ClientEdgeToClientObject",
         "concreteType": "TodoConnection",
+        "modelResolvers": null,
         "backingField": {
           "alias": null,
           "args": (v0/*: any*/),
@@ -75,6 +106,7 @@ return {
           "resolverModule": require('./../../../relay-runtime/store/__tests__/resolvers/QueryTodos').todos,
           "path": "todos",
           "normalizationInfo": {
+            "kind": "OutputType",
             "concreteType": "TodoConnection",
             "plural": false,
             "normalizationNode": require('./../../../relay-runtime/store/__tests__/resolvers/__generated__/Query__todos$normalization.graphql')
@@ -130,16 +162,135 @@ return {
     "name": "RelayResolversWithOutputTypeTestExceptionalProjectQuery",
     "selections": [
       {
-        "kind": "ClientExtension",
-        "selections": [
-          {
-            "name": "todos",
-            "args": (v0/*: any*/),
-            "fragment": null,
-            "kind": "RelayResolver",
-            "storageKey": "todos(first:10)"
-          }
-        ]
+        "kind": "ClientEdgeToClientObject",
+        "backingField": {
+          "name": "todos",
+          "args": (v0/*: any*/),
+          "fragment": null,
+          "kind": "RelayResolver",
+          "storageKey": "todos(first:10)",
+          "isOutputType": true
+        },
+        "linkedField": {
+          "alias": null,
+          "args": (v0/*: any*/),
+          "concreteType": "TodoConnection",
+          "kind": "LinkedField",
+          "name": "todos",
+          "plural": false,
+          "selections": [
+            {
+              "alias": null,
+              "args": null,
+              "concreteType": "TodoEdge",
+              "kind": "LinkedField",
+              "name": "edges",
+              "plural": true,
+              "selections": [
+                {
+                  "alias": null,
+                  "args": null,
+                  "concreteType": "Todo",
+                  "kind": "LinkedField",
+                  "name": "node",
+                  "plural": false,
+                  "selections": [
+                    {
+                      "kind": "ClientEdgeToClientObject",
+                      "backingField": {
+                        "name": "text",
+                        "args": null,
+                        "fragment": (v1/*: any*/),
+                        "kind": "RelayResolver",
+                        "storageKey": null,
+                        "isOutputType": true
+                      },
+                      "linkedField": {
+                        "alias": null,
+                        "args": null,
+                        "concreteType": "TodoText",
+                        "kind": "LinkedField",
+                        "name": "text",
+                        "plural": false,
+                        "selections": [
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "content",
+                            "storageKey": null
+                          },
+                          {
+                            "alias": null,
+                            "args": null,
+                            "concreteType": "TodoTextStyle",
+                            "kind": "LinkedField",
+                            "name": "style",
+                            "plural": false,
+                            "selections": [
+                              {
+                                "alias": null,
+                                "args": null,
+                                "kind": "ScalarField",
+                                "name": "font_style",
+                                "storageKey": null
+                              },
+                              {
+                                "alias": null,
+                                "args": null,
+                                "concreteType": "TodoTextColor",
+                                "kind": "LinkedField",
+                                "name": "color",
+                                "plural": false,
+                                "selections": [
+                                  {
+                                    "name": "human_readable_color",
+                                    "args": null,
+                                    "fragment": {
+                                      "kind": "InlineFragment",
+                                      "selections": [
+                                        {
+                                          "alias": null,
+                                          "args": null,
+                                          "kind": "ScalarField",
+                                          "name": "hex",
+                                          "storageKey": null
+                                        }
+                                      ],
+                                      "type": "TodoTextColor",
+                                      "abstractKey": null
+                                    },
+                                    "kind": "RelayResolver",
+                                    "storageKey": null,
+                                    "isOutputType": true
+                                  }
+                                ],
+                                "storageKey": null
+                              }
+                            ],
+                            "storageKey": null
+                          }
+                        ],
+                        "storageKey": null
+                      }
+                    },
+                    {
+                      "name": "complete",
+                      "args": null,
+                      "fragment": (v1/*: any*/),
+                      "kind": "RelayResolver",
+                      "storageKey": null,
+                      "isOutputType": true
+                    }
+                  ],
+                  "storageKey": null
+                }
+              ],
+              "storageKey": null
+            }
+          ],
+          "storageKey": "todos(first:10)"
+        }
       }
     ]
   },

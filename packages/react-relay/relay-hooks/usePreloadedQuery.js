@@ -11,14 +11,13 @@
 
 'use strict';
 
-import type {PreloadedQuery} from './EntryPointTypes.flow';
 import type {
-  GraphQLTaggedNode,
-  OperationType,
-  RenderPolicy,
-} from 'relay-runtime';
+  EnvironmentProviderOptions,
+  PreloadedQueryInner,
+  PreloadedQueryInner_DEPRECATED,
+} from './EntryPointTypes.flow';
+import type {Query, RenderPolicy, Variables} from 'relay-runtime';
 
-const {useTrackLoadQueryInRender} = require('./loadQuery');
 const useLazyLoadQueryNode = require('./useLazyLoadQueryNode');
 const useMemoOperationDescriptor = require('./useMemoOperationDescriptor');
 const useRelayEnvironment = require('./useRelayEnvironment');
@@ -29,28 +28,44 @@ const {
 } = require('relay-runtime');
 const warning = require('warning');
 
-// This separate type export is only needed as long as we are injecting
-// a separate hooks implementation in ./HooksImplementation -- it can
-// be removed after we stop doing that.
-export type UsePreloadedQueryHookType = <TQuery: OperationType>(
-  gqlQuery: GraphQLTaggedNode,
-  preloadedQuery: PreloadedQuery<TQuery>,
+type PreloadedQuery<
+  TVariables: Variables,
+  TData,
+  TRawResponse,
+  TEnvironmentProviderOptions = EnvironmentProviderOptions,
+> =
+  | PreloadedQueryInner_DEPRECATED<
+      {
+        variables: TVariables,
+        response: TData,
+        rawResponse?: TRawResponse,
+      },
+      TEnvironmentProviderOptions,
+    >
+  | PreloadedQueryInner<
+      {
+        variables: TVariables,
+        response: TData,
+        rawResponse?: TRawResponse,
+      },
+      TEnvironmentProviderOptions,
+    >;
+
+hook usePreloadedQuery<
+  TVariables: Variables,
+  TData,
+  TRawResponse: ?{...} = void,
+>(
+  gqlQuery: Query<TVariables, TData, TRawResponse>,
+  preloadedQuery: PreloadedQuery<
+    TVariables,
+    TData,
+    $NonMaybeType<TRawResponse>,
+  >,
   options?: {
     UNSTABLE_renderPolicy?: RenderPolicy,
   },
-) => TQuery['response'];
-
-function usePreloadedQuery<TQuery: OperationType>(
-  gqlQuery: GraphQLTaggedNode,
-  preloadedQuery: PreloadedQuery<TQuery>,
-  options?: {
-    UNSTABLE_renderPolicy?: RenderPolicy,
-  },
-): TQuery['response'] {
-  // We need to use this hook in order to be able to track if
-  // loadQuery was called during render
-  useTrackLoadQueryInRender();
-
+): TData {
   const environment = useRelayEnvironment();
   const {fetchKey, fetchPolicy, source, variables, networkCacheConfig} =
     preloadedQuery;
@@ -136,9 +151,15 @@ function usePreloadedQuery<TQuery: OperationType>(
     };
   }
 
-  const data = useLazyLoadQueryNode<TQuery>(useLazyLoadQueryNodeParams);
+  const data = useLazyLoadQueryNode<{
+    variables: TVariables,
+    response: TData,
+    rawResponse?: $NonMaybeType<TRawResponse>,
+  }>(useLazyLoadQueryNodeParams);
+
   if (__DEV__) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
+    // $FlowFixMe[react-rule-hook]
     useDebugValue({
       query: preloadedQuery.name,
       variables: preloadedQuery.variables,
@@ -151,4 +172,4 @@ function usePreloadedQuery<TQuery: OperationType>(
   return data;
 }
 
-module.exports = (usePreloadedQuery: UsePreloadedQueryHookType);
+module.exports = usePreloadedQuery;
