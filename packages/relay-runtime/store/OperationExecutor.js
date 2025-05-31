@@ -522,9 +522,10 @@ class Executor<TMutation: MutationParameters> {
       return;
     }
 
-    const [nonIncrementalResponses, incrementalResponses] =
+    const [nonIncrementalResponses, incrementalResponses, normalizedResponses] =
       partitionGraphQLResponses(responsesWithData);
     const hasNonIncrementalResponses = nonIncrementalResponses.length > 0;
+    const hasNormalizedResponses = normalizedResponses.length > 0;
 
     // In theory this doesn't preserve the ordering of the batch.
     // The idea is that a batch is always:
@@ -559,6 +560,31 @@ class Executor<TMutation: MutationParameters> {
       this._processPayloadFollowups(payloadFollowups);
     }
 
+    if (hasNormalizedResponses) {
+      const payloadFollowups = [];
+      for (let i = 0; i < normalizedResponses.length; i++) {
+        const response = normalizedResponses[i];
+        const source = new RelayRecordSource(
+          response.data as $FlowExpectedError,
+        );
+        const payload: RelayResponsePayload = {
+          errors: [],
+          fieldPayloads: [],
+          followupPayloads: [],
+          incrementalPlaceholders: [],
+          isFinal: response.extensions?.is_final === true,
+          source,
+        };
+        this._getPublishQueueAndSaveActor().commitPayload(
+          this._operation,
+          payload,
+          this._updater,
+        );
+        payloadFollowups.push(payload);
+      }
+      this._processPayloadFollowups(payloadFollowups);
+    }
+
     if (incrementalResponses.length > 0) {
       const payloadFollowups =
         this._processIncrementalResponses(incrementalResponses);
@@ -584,7 +610,9 @@ class Executor<TMutation: MutationParameters> {
     // the publish queue here, which will later be passed to the store (via
     // notify) to indicate that this operation caused the store to update
     const updatedOwners = this._runPublishQueue(
-      hasNonIncrementalResponses ? this._operation : undefined,
+      hasNonIncrementalResponses || hasNormalizedResponses
+        ? this._operation
+        : undefined,
     );
 
     if (hasNonIncrementalResponses) {
@@ -893,7 +921,8 @@ class Executor<TMutation: MutationParameters> {
                   placeholder.label,
                   placeholder.path,
                   placeholder,
-                  {data: placeholder.data},
+                  // `is_final` flag needs to be set for processing nested defer payloads
+                  {data: placeholder.data, extensions: {is_final: true}},
                 ),
               );
             }
@@ -1613,9 +1642,11 @@ function partitionGraphQLResponses(
 ): [
   $ReadOnlyArray<GraphQLResponseWithData>,
   $ReadOnlyArray<IncrementalGraphQLResponse>,
+  $ReadOnlyArray<GraphQLResponseWithData>,
 ] {
   const nonIncrementalResponses: Array<GraphQLResponseWithData> = [];
   const incrementalResponses: Array<IncrementalGraphQLResponse> = [];
+  const normalizedResponses: Array<GraphQLResponseWithData> = [];
   responses.forEach(response => {
     if (response.path != null || response.label != null) {
       const {label, path} = response;
@@ -1633,11 +1664,13 @@ function partitionGraphQLResponses(
         path,
         response,
       });
+    } else if (response.extensions?.is_normalized === true) {
+      normalizedResponses.push(response);
     } else {
       nonIncrementalResponses.push(response);
     }
   });
-  return [nonIncrementalResponses, incrementalResponses];
+  return [nonIncrementalResponses, incrementalResponses, normalizedResponses];
 }
 
 function stableStringify(value: mixed): string {
