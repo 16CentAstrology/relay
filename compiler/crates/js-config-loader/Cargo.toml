@@ -4,7 +4,7 @@
 name = "js-config-loader"
 version = "0.0.0"
 authors = ["Facebook"]
-edition = "2021"
+edition = "2024"
 repository = "https://github.com/facebook/relay"
 license = "MIT"
 
@@ -15,7 +15,7 @@ path = "tests/lib.rs"
 [dependencies]
 serde = { version = "1.0.185", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140", features = ["float_roundtrip", "unbounded_depth"] }
-thiserror = "2"
+thiserror = "2.0.12"
 
 [dev-dependencies]
 tempfile = "3.15"

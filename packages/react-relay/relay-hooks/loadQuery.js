@@ -43,7 +43,7 @@ const {
 
 let fetchKey = 100001;
 
-type QueryType<T> =
+export type QueryType<T> =
   T extends Query<infer V, infer D, infer RR>
     ? {
         variables: V,
@@ -126,7 +126,7 @@ function loadQuery<
   let networkError = null;
   // makeNetworkRequest will immediately start a raw network request if
   // one isn't already in flight and return an Observable that when
-  // subscribed to will replay the network events that have occured so far,
+  // subscribed to will replay the network events that have occurred so far,
   // as well as subsequent events.
   let didMakeNetworkRequest = false;
   const makeNetworkRequest = (
