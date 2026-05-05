@@ -21,7 +21,6 @@ export interface GraphQLSubscriptionConfig<TSubscription extends OperationType> 
     updater?: SelectorStoreUpdater<TSubscription["response"]> | undefined;
 }
 
-// eslint-disable-next-line @definitelytyped/no-unnecessary-generics
 export function requestSubscription<TSubscription extends OperationType = OperationType>(
     environment: Environment,
     config: GraphQLSubscriptionConfig<TSubscription>,

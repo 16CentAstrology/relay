@@ -7,9 +7,9 @@
 
 import type { JSResourceReference, NormalizationSplitOperation } from "./NormalizationNode";
 
-export type Local3DPayload<DocumentName extends string, Response extends {}> = Response;
+export type Local3DPayload<DocumentName extends string, Response extends Record<string, unknown>> = Response;
 
-export default function createPayloadFor3DField<DocumentName extends string, Response extends {}>(
+export default function createPayloadFor3DField<DocumentName extends string, Response extends Record<string, unknown>>(
     name: DocumentName,
     operation: JSResourceReference<NormalizationSplitOperation>,
     component: JSResourceReference<unknown>,

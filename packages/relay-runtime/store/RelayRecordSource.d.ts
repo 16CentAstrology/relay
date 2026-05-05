@@ -13,8 +13,7 @@ export class RelayRecordSource implements MutableRecordSource {
     constructor(records?: RecordMap);
 
     static create(records?: RecordMap): MutableRecordSource;
-    // eslint-disable-next-line @definitelytyped/no-unnecessary-generics
-    get<T extends object = {}>(dataID: DataID): Record<T> | null | undefined;
+    get<T extends object = Record<string, unknown>>(dataID: DataID): Record<T> | null | undefined;
     getRecordIDs(): DataID[];
     getStatus(dataID: DataID): RecordState;
     has(dataID: DataID): boolean;

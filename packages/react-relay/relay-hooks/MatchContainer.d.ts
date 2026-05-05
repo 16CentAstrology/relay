@@ -81,14 +81,14 @@ export type MatchPointer = Readonly<{
     " $fragmentSpreads": unknown;
 }>;
 
-export type MatchContainerProps<TProps = {}, TFallback = ReactNode> = Readonly<{
+export type MatchContainerProps<TProps = Record<string, unknown>, TFallback = ReactNode> = Readonly<{
     fallback?: TFallback | null | undefined;
     loader: (module: unknown) => ComponentType<TProps>;
     match?: MatchPointer | TypenameOnlyPointer | null | undefined;
     props?: TProps | undefined;
 }>;
 
-export function MatchContainer<TProps = {}, TFallback = ReactNode>(
+export function MatchContainer<TProps = Record<string, unknown>, TFallback = ReactNode>(
     props: MatchContainerProps<TProps, TFallback>,
 ): ElementType<TProps> | TFallback | null;
 

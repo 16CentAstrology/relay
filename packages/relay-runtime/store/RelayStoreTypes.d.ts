@@ -45,7 +45,7 @@ export type OperationTracker = RelayOperationTracker;
 /*
  * An individual cached graph object.
  */
-export interface Record<T extends object = {}> {
+export interface Record<T extends object = Record<string, unknown>> {
     [key: string]: T;
 }
 
@@ -195,8 +195,7 @@ export interface FragmentSpecResolver {
  * A read-only interface for accessing cached graph data.
  */
 export interface RecordSource {
-    // eslint-disable-next-line @definitelytyped/no-unnecessary-generics
-    get<T extends object = {}>(dataID: DataID): Record<T> | null | undefined;
+    get<T extends object = Record<string, unknown>>(dataID: DataID): Record<T> | null | undefined;
     getRecordIDs(): DataID[];
     getStatus(dataID: DataID): RecordState;
     has(dataID: DataID): boolean;
@@ -341,7 +340,7 @@ export type Scheduler = (callback: () => void) => void;
 export type Unarray<T> = T extends Array<infer U> | ReadonlyArray<infer U> ? U : T;
 export type Primitive = string | number | boolean | null | undefined;
 
-export interface RecordProxy<T = {}> {
+export interface RecordProxy<T = Record<string, unknown>> {
     copyFieldsFrom(source: RecordProxy): void;
     getDataID(): DataID;
     // If a parent type is provided, provide the child type
@@ -409,8 +408,7 @@ export interface ReadOnlyRecordProxy {
 export interface RecordSourceProxy {
     create(dataID: DataID, typeName: string): RecordProxy;
     delete(dataID: DataID): void;
-    // eslint-disable-next-line @definitelytyped/no-unnecessary-generics
-    get<T = {}>(dataID: DataID): RecordProxy<T> | null | undefined;
+    get<T = Record<string, unknown>>(dataID: DataID): RecordProxy<T> | null | undefined;
     getRoot(): RecordProxy;
 }
 
@@ -424,7 +422,7 @@ export interface ReadOnlyRecordSourceProxy {
  * fields of a Selector.
  */
 
-export interface RecordSourceSelectorProxy<T = {}> extends RecordSourceProxy {
+export interface RecordSourceSelectorProxy<T = Record<string, unknown>> extends RecordSourceProxy {
     getRootField<K extends keyof T>(fieldName: K): RecordProxy<NonNullable<T[K]>>;
     getRootField(fieldName: string): RecordProxy | null;
     getPluralRootField(fieldName: string): Array<RecordProxy<T> | null> | null;

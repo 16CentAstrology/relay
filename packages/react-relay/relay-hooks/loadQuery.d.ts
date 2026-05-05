@@ -10,7 +10,7 @@ import { EnvironmentProviderOptions, LoadQueryOptions, PreloadedQuery } from "..
 
 export function loadQuery<
     TQuery extends OperationType,
-    TEnvironmentProviderOptions extends EnvironmentProviderOptions = {},
+    TEnvironmentProviderOptions extends EnvironmentProviderOptions = Record<string, unknown>,
 >(
     environment: IEnvironment,
     preloadableRequest: GraphQLTaggedNode | PreloadableConcreteRequest<TQuery>,
