@@ -81,7 +81,7 @@ impl ToSDLDefinition<SchemaDocument> for SchemaSet {
             .values()
             .map(|d| d.to_sdl_definition())
             .collect::<Vec<_>>();
-        directives.sort_by(|a, b| a.name.value.cmp(&b.name.value));
+        directives.sort_by_key(|a| a.name.value);
 
         let mut sorted_types = self.types.values().collect::<Vec<_>>();
         sorted_types.sort_by_key(|a| a.string_key_name());
@@ -290,7 +290,7 @@ impl ToSDLDefinition<InputObjectTypeDefinition> for SetInputObject {
                 .values()
                 .map(|value| value.to_sdl_definition())
                 .collect::<Vec<_>>();
-            items.sort_by(|a, b| a.name.value.cmp(&b.name.value));
+            items.sort_by_key(|a| a.name.value);
             Some(List {
                 span: Span::empty(),
                 start: build_token(TokenKind::OpenBrace),
@@ -530,7 +530,7 @@ fn build_argument_definitions(
         .values()
         .map(|arg| arg.to_sdl_definition())
         .collect();
-    items.sort_by(|a, b| a.name.cmp(&b.name));
+    items.sort_by_key(|a| a.name);
     Some(List {
         span: Span::empty(),
         start: build_token(TokenKind::OpenParen),
@@ -549,7 +549,7 @@ fn build_arguments(arguments: &[ArgumentValue]) -> Option<List<ConstantArgument>
         .iter()
         .map(|arg| arg.to_sdl_definition())
         .collect();
-    arguments_vec.sort_by(|a, b| a.name.cmp(&b.name));
+    arguments_vec.sort_by_key(|a| a.name);
 
     Some(List {
         span: Span::empty(),
@@ -565,7 +565,7 @@ fn build_directives(directives: &[SetDirectiveValue]) -> Vec<ConstantDirective> 
         .iter()
         .map(|directive| directive.to_directive_value().to_sdl_definition())
         .collect();
-    built.sort_by(|a, b| a.name.cmp(&b.name));
+    built.sort_by_key(|a| a.name);
     built
 }
 
@@ -598,7 +598,7 @@ fn build_fields(fields: &StringKeyMap<SetField>) -> Option<List<FieldDefinition>
         .values()
         .map(|field| field.to_sdl_definition())
         .collect();
-    items.sort_by(|a, b| a.name.value.cmp(&b.name.value));
+    items.sort_by_key(|a| a.name.value);
 
     Some(List {
         span: Span::empty(),

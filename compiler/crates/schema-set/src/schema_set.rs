@@ -1217,8 +1217,7 @@ mod tests {
             .filter(|x| !x.trim().is_empty())
             .collect::<Vec<_>>();
 
-        let mut part_number = 1;
-        for both_schemas in library_schemas {
+        for (part_number, both_schemas) in (1..).zip(library_schemas) {
             let mut split_schemas = both_schemas
                 .split("# Client-Schema")
                 .collect::<VecDeque<_>>();
@@ -1248,7 +1247,6 @@ mod tests {
                         .unwrap();
                 }
             }
-            part_number += 1;
         }
 
         merging_schema.fix_all_types().unwrap();

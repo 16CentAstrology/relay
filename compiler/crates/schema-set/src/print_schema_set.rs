@@ -467,7 +467,7 @@ impl PrintableDefinition for SetArgument {
 fn sorted_from_map<T>(map: &StringKeyMap<T>) -> Vec<&T> {
     let mut to_sort: Vec<(&StringKey, &T)> = map.iter().collect();
     // Sort the (key, value) pairs by key
-    to_sort.sort_by(|(a_key, _a_v), (b_key, _b_v)| a_key.cmp(b_key));
+    to_sort.sort_by_key(|(a_key, _a_v)| *a_key);
     // Then collect a ref of values
     to_sort.into_iter().map(|(_, v)| v).collect()
 }
@@ -476,7 +476,7 @@ fn sorted_from_map<T>(map: &StringKeyMap<T>) -> Vec<&T> {
 fn sorted_from_index_map<T>(map: &StringKeyIndexMap<T>) -> Vec<&T> {
     let mut to_sort: Vec<(&StringKey, &T)> = map.iter().collect();
     // Sort the (key, value) pairs by key
-    to_sort.sort_by(|(a_key, _a_v), (b_key, _b_v)| a_key.cmp(b_key));
+    to_sort.sort_by_key(|(a_key, _a_v)| *a_key);
     // Then collect a ref of values
     to_sort.into_iter().map(|(_, v)| v).collect()
 }
@@ -484,7 +484,7 @@ fn sorted_from_index_map<T>(map: &StringKeyIndexMap<T>) -> Vec<&T> {
 fn sorted_from_pairs<'a, T>(to_sort: Vec<(&'a StringKey, &'a T)>) -> Vec<&'a T> {
     let mut to_sort = to_sort;
     // Sort the (key, value) pairs by key
-    to_sort.sort_by(|(a_key, _a_v), (b_key, _b_v)| a_key.cmp(b_key));
+    to_sort.sort_by_key(|(a_key, _a_v)| *a_key);
     // Then collect a ref of values
     to_sort.into_iter().map(|(_, v)| v).collect()
 }
