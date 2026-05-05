@@ -20,7 +20,6 @@ use crate::OutputTypeReference;
 use crate::SchemaSet;
 use crate::SetDirectiveValue;
 use crate::SetType;
-use crate::schema_set::CanBeClientDefinition;
 use crate::schema_set::CanHaveDirectives;
 use crate::schema_set::HasArguments;
 use crate::schema_set::HasFields;
@@ -109,6 +108,10 @@ fn merge_definition(
                     existing.locations.push(*loc);
                 }
             }
+
+            // a non-client-definition always supersedes a client definition
+            existing.is_client_definition =
+                existing.is_client_definition && incoming.is_client_definition;
         }
         (None, Some(_)) => {
             *target = source.clone();
@@ -160,7 +163,6 @@ pub trait MergesFromAbstractDefinition<TAbstract> {
 
 impl Merges for SetRootSchema {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         merge_directive_values(self, other.directives);
         merge_root_operation_type(
@@ -222,12 +224,10 @@ impl Merges for SetType {
 
 impl Merges for SetEnum {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        let is_other_client_definition = other.is_client_definition();
         merge_definition(&mut self.definition, &other.definition);
         for (value_name, other_value) in other.values {
             self.values.entry(value_name).or_insert(other_value);
         }
-        merge_is_client_definition(self, is_other_client_definition);
         merge_directive_values(self, other.directives);
         Ok(())
     }
@@ -235,7 +235,6 @@ impl Merges for SetEnum {
 
 impl Merges for SetInterface {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         merge_directive_values(self, other.directives);
 
@@ -269,7 +268,6 @@ impl MergesFromAbstractDefinition<SetInterface> for SetInterface {
 
 impl Merges for SetObject {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         merge_directive_values(self, other.directives);
 
@@ -302,7 +300,6 @@ impl MergesFromAbstractDefinition<SetInterface> for SetObject {
 
 impl Merges for SetUnion {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         merge_directive_values(self, other.directives);
         merge_members(&mut self.members, other.members)?;
@@ -312,7 +309,6 @@ impl Merges for SetUnion {
 
 impl Merges for SetInputObject {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         // This merges the Input Object's fields
         merge_arguments(self, other.fields, &self.name.to_string())?;
@@ -323,7 +319,6 @@ impl Merges for SetInputObject {
 
 impl Merges for SetScalar {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         merge_directive_values(self, other.directives);
         Ok(())
@@ -332,7 +327,6 @@ impl Merges for SetScalar {
 
 impl Merges for SetDirective {
     fn merge(&mut self, other: Self) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
         merge_arguments(self, other.arguments, &self.name.to_string())?;
 
@@ -348,7 +342,6 @@ impl Merges for SetDirective {
 
 impl SetField {
     fn merge_with_parent(&mut self, other: Self, parent_type: &str) -> DiagnosticsResult<()> {
-        merge_is_client_definition(self, other.is_client_definition());
         merge_definition(&mut self.definition, &other.definition);
 
         if self.type_ != other.type_ {
@@ -626,15 +619,6 @@ fn merge_root_operation_type(
         *existing = Some(other_type);
     }
     Ok(())
-}
-
-fn merge_is_client_definition<T: CanBeClientDefinition>(
-    existing: &mut T,
-    other_is_client_definition: bool,
-) {
-    // If a server-defined type comes along, then we *need* to have a base-schema type definition for it.
-    existing
-        .set_is_client_definition(existing.is_client_definition() && other_is_client_definition);
 }
 
 fn merge_members(

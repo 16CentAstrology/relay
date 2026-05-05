@@ -45,13 +45,12 @@ use crate::OutputTypeReference;
 use crate::SchemaDefault;
 use crate::SchemaInsertField;
 use crate::UsedSchemaCollectionOptions;
-use crate::impl_can_be_client_definition;
 use crate::impl_can_have_directives;
 use crate::impl_has_arguments;
+use crate::impl_has_definition_item;
 use crate::impl_has_description;
 use crate::impl_has_fields;
 use crate::impl_has_interfaces;
-use crate::impl_partitions_only_directives;
 use crate::impl_string_key_named_raw;
 use crate::impl_string_key_named_with_location;
 use crate::impl_traits;
@@ -244,12 +243,12 @@ impl SchemaSet {
         match definition {
             TypeSystemDefinition::SchemaDefinition(schema_def) => self
                 .root_schema
-                .merge(schema_def.to_set_definition(source, is_ext_document)),
+                .merge(schema_def.to_set_definition(source, is_ext_document, false)),
             TypeSystemDefinition::SchemaExtension(schema_ext) => self.root_schema.merge(
                 schema_ext
                     .clone()
                     .into_definition()
-                    .to_set_definition(source, true),
+                    .to_set_definition(source, true, true),
             ),
             TypeSystemDefinition::EnumTypeDefinition(def) => {
                 merge_def_into(&mut self.types, def, source, is_ext_document)
@@ -465,6 +464,27 @@ impl SchemaSet {
     }
 }
 
+/// Describes what *state* a specific definition is in, plus location and metadata.
+///
+/// When None, it means that the parent Set<Object|Interface|...> is
+/// purely extending some otherwise-not-present base type.
+///
+/// For top-level types, the None case can be represented in SDL as
+/// `extend type Foo @extensionDirective implements ExtensionImplements { extensionField: String }`
+/// In the above case, if that is ALL the SchemaSet holds, then the SetObject will *not* have a SchemaDefinitionItem,
+/// but the SetDirectiveValue, SetMemberType, and SetField all will have a SchemaDefinitionItem.
+///
+/// This means that SchemaSet(`type A { fieldA: String }`).exclude(SchemaSet(`type A`))
+/// ends up as a SchemaSet represented as `extend type A { fieldA: String }`: the underlying definition is gone,
+/// but we still need to represent the existence of `A.fieldA`.
+///
+/// `is_client_definition` represents something different: whether this specific definition was *only* present
+/// in a document meant for consumption outside the base set. So for example in Relay, client resolvers
+/// would be represented with is_client_definition: true on the field.
+/// Likewise, client-only types will be is_client_definition, despite being defined in SDL using `type ClientOnly { ... }`.
+///
+/// A Set item with a None SchemaDefinitionItem, and *no* child items, is considered fully excluded.
+/// There should be no reason to extend an item if there's nothing in that extension.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchemaDefinitionItem {
     pub name: StringKey,
@@ -508,7 +528,18 @@ impl StringKeyNamed for SetType {
     }
 }
 
-impl CanBeClientDefinition for SetType {
+impl HasDefinitionItem for SetType {
+    fn definition_item(&self) -> Option<&SchemaDefinitionItem> {
+        match self {
+            SetType::Scalar(t) => t.definition_item(),
+            SetType::Enum(t) => t.definition_item(),
+            SetType::Object(t) => t.definition_item(),
+            SetType::Interface(t) => t.definition_item(),
+            SetType::Union(t) => t.definition_item(),
+            SetType::InputObject(t) => t.definition_item(),
+        }
+    }
+
     fn is_client_definition(&self) -> bool {
         match self {
             SetType::Scalar(t) => t.is_client_definition(),
@@ -520,14 +551,14 @@ impl CanBeClientDefinition for SetType {
         }
     }
 
-    fn set_is_client_definition(&mut self, is_client_definition: bool) {
+    fn remove_definition_item(&mut self) {
         match self {
-            SetType::Scalar(t) => t.set_is_client_definition(is_client_definition),
-            SetType::Enum(t) => t.set_is_client_definition(is_client_definition),
-            SetType::Object(t) => t.set_is_client_definition(is_client_definition),
-            SetType::Interface(t) => t.set_is_client_definition(is_client_definition),
-            SetType::Union(t) => t.set_is_client_definition(is_client_definition),
-            SetType::InputObject(t) => t.set_is_client_definition(is_client_definition),
+            SetType::Scalar(t) => t.remove_definition_item(),
+            SetType::Enum(t) => t.remove_definition_item(),
+            SetType::Object(t) => t.remove_definition_item(),
+            SetType::Interface(t) => t.remove_definition_item(),
+            SetType::Union(t) => t.remove_definition_item(),
+            SetType::InputObject(t) => t.remove_definition_item(),
         }
     }
 }
@@ -612,27 +643,10 @@ impl SetRootSchema {
 }
 impl_traits!(
     SetRootSchema,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
-impl CanBeClientDefinition for SetRootSchema {
-    fn is_client_definition(&self) -> bool {
-        self.definition.is_none() || self.definition.as_ref().unwrap().is_client_definition
-    }
-    fn set_is_client_definition(&mut self, is_client_definition: bool) {
-        if let Some(def) = &mut self.definition {
-            def.is_client_definition = is_client_definition;
-        } else {
-            self.definition = Some(SchemaDefinitionItem {
-                name: "schema".intern(),
-                locations: Vec::new(),
-                is_client_definition,
-                description: None,
-                hack_source: None,
-            });
-        }
-    }
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetScalar {
@@ -643,9 +657,8 @@ pub struct SetScalar {
 impl_traits!(
     SetScalar,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
-    impl_partitions_only_directives,
     impl_has_description
 );
 
@@ -662,7 +675,7 @@ impl_traits!(
     impl_has_fields,
     impl_has_interfaces,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
@@ -692,7 +705,7 @@ impl_traits!(
     impl_has_fields,
     impl_has_interfaces,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
@@ -712,7 +725,7 @@ pub struct SetInputObject {
 impl_traits!(
     SetInputObject,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
@@ -739,7 +752,7 @@ pub struct SetEnum {
 impl_traits!(
     SetEnum,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
@@ -755,7 +768,7 @@ pub struct SetUnion {
 impl_traits!(
     SetUnion,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
@@ -783,7 +796,7 @@ impl_traits!(
     SetField,
     impl_has_arguments,
     impl_string_key_named_with_location,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_can_have_directives,
     impl_has_description
 );
@@ -813,7 +826,7 @@ pub struct SetDirective {
 impl_traits!(
     SetDirective,
     impl_has_arguments,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_string_key_named_with_location,
     impl_has_description
 );
@@ -828,30 +841,11 @@ pub struct SetArgument {
 }
 impl_traits!(
     SetArgument,
+    impl_has_definition_item,
     impl_string_key_named_raw,
     impl_can_have_directives,
     impl_has_description
 );
-
-impl CanBeClientDefinition for SetArgument {
-    fn is_client_definition(&self) -> bool {
-        self.definition.is_none() || self.definition.as_ref().unwrap().is_client_definition
-    }
-
-    fn set_is_client_definition(&mut self, is_client_definition: bool) {
-        if let Some(def) = &mut self.definition {
-            def.is_client_definition = is_client_definition;
-        } else {
-            self.definition = Some(SchemaDefinitionItem {
-                name: self.name,
-                locations: Vec::new(),
-                is_client_definition,
-                description: None,
-                hack_source: None,
-            });
-        }
-    }
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetDirectiveValue {
@@ -861,7 +855,7 @@ pub struct SetDirectiveValue {
 }
 impl_traits!(
     SetDirectiveValue,
-    impl_can_be_client_definition,
+    impl_has_definition_item,
     impl_string_key_named_with_location
 );
 
@@ -913,7 +907,7 @@ pub struct SetArgumentValue {
     pub value: ConstantValue,
 }
 
-impl_traits!(SetArgumentValue, impl_can_be_client_definition);
+impl_traits!(SetArgumentValue, impl_has_definition_item);
 
 impl common::Named for SetArgumentValue {
     type Name = common::ArgumentName;
@@ -952,27 +946,12 @@ pub struct SetEnumValue {
     pub directives: Vec<SetDirectiveValue>,
     pub description: Option<StringKey>,
 }
-impl_traits!(SetEnumValue, impl_can_have_directives, impl_has_description);
-
-impl CanBeClientDefinition for SetEnumValue {
-    fn is_client_definition(&self) -> bool {
-        self.definition.is_none() || self.definition.as_ref().unwrap().is_client_definition
-    }
-
-    fn set_is_client_definition(&mut self, is_client_definition: bool) {
-        if let Some(def) = &mut self.definition {
-            def.is_client_definition = is_client_definition;
-        } else {
-            self.definition = Some(SchemaDefinitionItem {
-                name: self.value,
-                locations: Vec::new(),
-                is_client_definition,
-                description: None,
-                hack_source: None,
-            });
-        }
-    }
-}
+impl_traits!(
+    SetEnumValue,
+    impl_has_definition_item,
+    impl_can_have_directives,
+    impl_has_description
+);
 
 impl common::Named for SetEnumValue {
     type Name = StringKey;
@@ -1012,9 +991,19 @@ pub trait StringKeyNamed {
     fn string_key_name(&self) -> StringKey;
 }
 
-pub trait CanBeClientDefinition {
-    fn is_client_definition(&self) -> bool;
-    fn set_is_client_definition(&mut self, is_client_definition: bool);
+pub trait HasDefinitionItem {
+    fn definition_item(&self) -> Option<&SchemaDefinitionItem>;
+
+    fn is_client_definition(&self) -> bool {
+        self.definition_item()
+            .as_ref()
+            .is_none_or(|definition| definition.is_client_definition)
+    }
+
+    /// Make this definition represent an undefined type.
+    /// Usually represented by `extend ...` in the SDL, but can also represent
+    /// any pass-through schema coordinate that isn't explicitly defined in the SchemaSet.
+    fn remove_definition_item(&mut self);
 }
 
 pub trait CanHaveDirectives {

@@ -69,7 +69,29 @@ use crate::schema_set::StringKeyNamed;
 use crate::set_merges::Merges;
 
 pub trait ToSetDefinition<T> {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> T;
+    /// Build a `T` "set definition" from a parsed GraphQL syntax node.
+    ///
+    /// `is_extends` indicates that this conversion is happening on behalf of
+    /// an `extend X { ... }` SDL node rather than a fresh `X { ... }`
+    /// definition. For top-level type kinds (`SetObject`, `SetInterface`,
+    /// `SetUnion`, `SetScalar`, `SetEnum`, `SetInputObject`) this controls
+    /// whether the resulting `definition: Option<SchemaDefinitionItem>` field
+    /// is populated (`is_extends = false`) or left as `None`
+    /// (`is_extends = true`). The presence/absence of that field is what
+    /// `to_sdl_definition` later uses to decide whether to emit the entry as
+    /// a `*TypeDefinition` or a `*TypeExtension`. (This is hacky: ideally
+    /// `is_extends` would be its own field on `SchemaDefinitionItem`, but
+    /// today the absence of `definition` is the only signal we have.)
+    ///
+    /// Sub-element impls (`SetField`, `SetArgument`, `SetDirectiveValue`,
+    /// `SetArgumentValue`) ignore `is_extends` because their `definition`
+    /// field always tracks the field/argument's own declaration site.
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> T;
 }
 
 pub fn merge_def_into<
@@ -81,7 +103,7 @@ pub fn merge_def_into<
     source: SourceLocationKey,
     is_client_definition: bool,
 ) -> DiagnosticsResult<()> {
-    let merge_type = type_def.to_set_definition(source, is_client_definition);
+    let merge_type = type_def.to_set_definition(source, is_client_definition, false);
     let name = merge_type.string_key_name();
     if let Some(exists) = merge_map.get_mut(&name) {
         exists.merge(merge_type)?;
@@ -109,7 +131,14 @@ where
         // this will be a no-op.
         // However, any *fields* we merge in from an extension need to be annotated as being
         // an extension field.
-        .to_set_definition(source, true);
+        //
+        // `is_extends = true` ensures the resulting `SetType` has
+        // `definition: None`, so `Merges::merge` correctly treats this entry
+        // as extension-only when there's no pre-existing base entry, and so
+        // `to_sdl_definition` round-trips it back as `extend X { ... }`
+        // rather than `X { ... }` (which would conflict with the base on
+        // re-import via `SDLSchema::build`).
+        .to_set_definition(source, true, true);
     let name = set_type.string_key_name();
     if let Some(exists) = used_map.get_mut(&name) {
         exists.merge(set_type)?;
@@ -124,9 +153,10 @@ impl ToSetDefinition<SetRootSchema> for SchemaDefinition {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
+        is_extends: bool,
     ) -> SetRootSchema {
         let mut set_root_schema = SetRootSchema {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: "schema".intern(),
                 locations: vec![Location::new(source, self.span)],
                 is_client_definition,
@@ -155,7 +185,12 @@ impl ToSetDefinition<SetRootSchema> for SchemaDefinition {
 }
 
 impl ToSetDefinition<SetType> for EnumTypeDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetType {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> SetType {
         let directives = build_directive_values(&self.directives, source, is_client_definition);
         let values = self.values.as_ref().map_or(BTreeMap::default(), |v| {
             v.items
@@ -184,7 +219,7 @@ impl ToSetDefinition<SetType> for EnumTypeDefinition {
                 .collect()
         });
         SetType::Enum(SetEnum {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: self.name.value,
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
@@ -199,9 +234,14 @@ impl ToSetDefinition<SetType> for EnumTypeDefinition {
 }
 
 impl ToSetDefinition<SetType> for InterfaceTypeDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetType {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> SetType {
         SetType::Interface(SetInterface {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: self.name.value,
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
@@ -217,9 +257,14 @@ impl ToSetDefinition<SetType> for InterfaceTypeDefinition {
 }
 
 impl ToSetDefinition<SetType> for ObjectTypeDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetType {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> SetType {
         SetType::Object(SetObject {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: self.name.value,
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
@@ -235,9 +280,14 @@ impl ToSetDefinition<SetType> for ObjectTypeDefinition {
 }
 
 impl ToSetDefinition<SetType> for UnionTypeDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetType {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> SetType {
         SetType::Union(SetUnion {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: self.name.value,
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
@@ -252,9 +302,14 @@ impl ToSetDefinition<SetType> for UnionTypeDefinition {
 }
 
 impl ToSetDefinition<SetType> for InputObjectTypeDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetType {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> SetType {
         SetType::InputObject(SetInputObject {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: self.name.value,
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
@@ -274,9 +329,14 @@ impl ToSetDefinition<SetType> for InputObjectTypeDefinition {
 }
 
 impl ToSetDefinition<SetType> for ScalarTypeDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetType {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        is_extends: bool,
+    ) -> SetType {
         SetType::Scalar(SetScalar {
-            definition: Some(SchemaDefinitionItem {
+            definition: (!is_extends).then(|| SchemaDefinitionItem {
                 name: self.name.value,
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
@@ -298,6 +358,9 @@ impl ToSetDefinition<SetDirective> for DirectiveDefinition {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
+        // GraphQL has no `extend directive`; this is unused but required by
+        // the trait signature.
+        _is_extends: bool,
     ) -> SetDirective {
         SetDirective {
             definition: Some(SchemaDefinitionItem {
@@ -316,7 +379,14 @@ impl ToSetDefinition<SetDirective> for DirectiveDefinition {
 }
 
 impl ToSetDefinition<SetField> for FieldDefinition {
-    fn to_set_definition(&self, source: SourceLocationKey, is_client_definition: bool) -> SetField {
+    fn to_set_definition(
+        &self,
+        source: SourceLocationKey,
+        is_client_definition: bool,
+        // Field-level definitions always carry their own `definition` field;
+        // top-level extension semantics don't apply.
+        _is_extends: bool,
+    ) -> SetField {
         SetField {
             definition: Some(SchemaDefinitionItem {
                 name: self.name.value,
@@ -338,6 +408,9 @@ impl ToSetDefinition<SetArgument> for InputValueDefinition {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
+        // Input-value definitions always carry their own `definition` field;
+        // top-level extension semantics don't apply.
+        _is_extends: bool,
     ) -> SetArgument {
         SetArgument {
             definition: Some(SchemaDefinitionItem {
@@ -363,12 +436,14 @@ impl ToSetDefinition<SetDirectiveValue> for ConstantDirective {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
+        // Directive-application sites are not themselves extensions.
+        _is_extends: bool,
     ) -> SetDirectiveValue {
         let arguments = if let Some(arguments) = &self.arguments {
             arguments
                 .items
                 .iter()
-                .map(|argument| argument.to_set_definition(source, is_client_definition))
+                .map(|argument| argument.to_set_definition(source, is_client_definition, false))
                 .collect()
         } else {
             Vec::new()
@@ -392,6 +467,8 @@ impl ToSetDefinition<SetArgumentValue> for ConstantArgument {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
+        // Argument-application sites are not themselves extensions.
+        _is_extends: bool,
     ) -> SetArgumentValue {
         SetArgumentValue {
             definition: Some(SchemaDefinitionItem {
@@ -416,7 +493,7 @@ fn build_directive_values(
     directives
         .iter()
         .filter(|d| d.name.value != SEMANTIC_NON_NULL.0)
-        .map(|directive| directive.to_set_definition(source, is_client_definition))
+        .map(|directive| directive.to_set_definition(source, is_client_definition, false))
         .collect()
 }
 
@@ -445,7 +522,10 @@ fn build_fields(
         .iter()
         .map(|field| {
             let name = field.name.value;
-            (name, field.to_set_definition(source, is_client_definition))
+            (
+                name,
+                field.to_set_definition(source, is_client_definition, false),
+            )
         })
         .collect()
 }

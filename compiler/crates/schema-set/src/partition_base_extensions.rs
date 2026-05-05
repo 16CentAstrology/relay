@@ -14,11 +14,12 @@ use crate::SetField;
 use crate::SetInputObject;
 use crate::SetInterface;
 use crate::SetObject;
+use crate::SetScalar;
 use crate::SetType;
 use crate::SetUnion;
-use crate::schema_set::CanBeClientDefinition;
 use crate::schema_set::CanHaveDirectives;
 use crate::schema_set::HasArguments;
+use crate::schema_set::HasDefinitionItem;
 use crate::schema_set::HasFields;
 use crate::schema_set::HasInterfaces;
 
@@ -62,12 +63,14 @@ pub fn partition_schema_set_base_and_extensions(
     Ok((base, extensions))
 }
 
-pub trait PartitionsBaseExtension: CanBeClientDefinition + Sized + Clone {
+pub trait PartitionsBaseExtension: HasDefinitionItem + Sized + Clone {
     // Implement this: will only be called if the type is not a fully client type
     fn partition_base_extension(&self) -> (Self, Option<Self>);
 }
 
-fn partition_object_or_interface<T: CanHaveDirectives + HasFields + HasInterfaces + Clone>(
+fn partition_object_or_interface<
+    T: CanHaveDirectives + HasDefinitionItem + HasFields + HasInterfaces + Clone,
+>(
     item: &T,
 ) -> (T, Option<T>) {
     let (base_fields, extension_fields) = item.partition_extension_fields();
@@ -89,6 +92,11 @@ fn partition_object_or_interface<T: CanHaveDirectives + HasFields + HasInterface
         ext.set_fields(extension_fields);
         ext.set_interfaces(extension_interfaces);
         ext.set_directives(extension_directives);
+        // The extension half no longer represents a top-level type definition;
+        // clearing `definition` makes `to_sdl_definition` emit it as
+        // `extend X { ... }` instead of `X { ... }` (which would conflict with
+        // the base half on re-import via `SDLSchema::build`).
+        ext.remove_definition_item();
         Some(ext)
     };
     (base, extension)
@@ -159,6 +167,9 @@ impl PartitionsBaseExtension for SetUnion {
             None
         } else {
             Some(Self {
+                // The extension half is not a top-level definition; see comment
+                // in `partition_object_or_interface` for rationale.
+                definition: None,
                 members: extension_members,
                 directives: extension_directives,
                 ..self.clone()
@@ -187,6 +198,9 @@ impl PartitionsBaseExtension for SetEnum {
             None
         } else {
             Some(Self {
+                // The extension half is not a top-level definition; see comment
+                // in `partition_object_or_interface` for rationale.
+                definition: None,
                 values: extension_values,
                 directives: extension_directives,
                 ..self.clone()
@@ -211,6 +225,9 @@ impl PartitionsBaseExtension for SetInputObject {
             None
         } else {
             Some(Self {
+                // The extension half is not a top-level definition; see comment
+                // in `partition_object_or_interface` for rationale.
+                definition: None,
                 fields: extension_fields,
                 directives: extension_directives,
                 ..self.clone()
@@ -236,6 +253,7 @@ impl PartitionsBaseExtension for SetDirective {
         } else {
             Some(Self {
                 arguments: extension_args,
+                definition: None,
                 ..self.clone()
             })
         };
@@ -263,12 +281,41 @@ impl PartitionsBaseExtension for SetField {
             Some(Self {
                 arguments: extension_args,
                 directives: extension_directives,
+                definition: None,
                 ..self.clone()
             })
         };
         (base, extension)
     }
 }
+
+impl PartitionsBaseExtension for SetScalar {
+    // Though the *spec* does not yet allow extending a field definition,
+    // we can support field definition extensions natively by, for instance, merging
+    // an extension field with a base field of the same name.
+    fn partition_base_extension(&self) -> (Self, Option<Self>) {
+        let (base_directives, extension_directives) = self.partition_extension_directives();
+
+        let base = Self {
+            directives: base_directives,
+            ..self.clone()
+        };
+
+        let extension = if extension_directives.is_empty() {
+            None
+        } else {
+            Some(Self {
+                directives: extension_directives,
+                definition: None,
+                ..self.clone()
+            })
+        };
+        (base, extension)
+    }
+}
+
+// We probably should do partitions for SetArgument, SetArgumentValue, and SetDirectiveValue, but
+// those are a difficult to represent as split in SDL, so it's a bit unclear what a partition would do.
 
 #[cfg(test)]
 mod tests {

@@ -28,6 +28,7 @@ use intern::string_key::Intern;
 use lazy_static::lazy_static;
 
 pub use crate::build_schema_document::ToSDLDefinition;
+pub use crate::build_schema_document::ToTypeSystemDefinition;
 pub use crate::builtin_scalars::add_built_in_scalars;
 pub use crate::builtin_scalars::remove_built_in_scalars;
 pub use crate::from_schema::SchemaDefault;

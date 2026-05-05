@@ -998,7 +998,7 @@ mod tests {
 
     use super::*;
     use crate::UsedSchemaCollectionOptions;
-    use crate::schema_set::CanBeClientDefinition;
+    use crate::schema_set::HasDefinitionItem;
 
     fn build_sdl_schema(sdl: &str) -> Arc<SDLSchema> {
         schema::build_schema(sdl).unwrap().into()

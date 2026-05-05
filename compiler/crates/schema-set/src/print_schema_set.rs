@@ -18,8 +18,8 @@ use crate::build_schema_document::output_type_ref_to_semantic_sdl_type;
 use crate::partition_base_extensions::PartitionsBaseExtension;
 use crate::partition_schema_set_base_and_extensions;
 use crate::remove_built_in_scalars;
-use crate::schema_set::CanBeClientDefinition;
 use crate::schema_set::CanHaveDirectives;
+use crate::schema_set::HasDefinitionItem;
 use crate::schema_set::HasDescription;
 use crate::schema_set::HasFields;
 use crate::schema_set::HasInterfaces;
@@ -193,7 +193,7 @@ pub trait PrintableDefinition {
     fn print_definition(&self) -> String;
 }
 trait PrintableExtendDefinition:
-    PrintableDefinition + CanBeClientDefinition + PartitionsBaseExtension
+    PrintableDefinition + HasDefinitionItem + PartitionsBaseExtension
 {
     fn print_extend_definition(&self) -> String {
         format!("extend {}", self.print_definition())
@@ -252,12 +252,6 @@ impl PrintableDefinition for SetScalar {
     }
 }
 impl PrintableExtendDefinition for SetScalar {}
-
-#[allow(dead_code)]
-pub trait PrintableBaseAndClientDefinition: CanBeClientDefinition {
-    fn print_base_schema_definition(&self, schema_set: &SchemaSet) -> Option<String>;
-    fn print_client_schema_definition(&self, schema_set: &SchemaSet) -> Option<String>;
-}
 
 impl PrintableDefinition for SetEnum {
     fn print_definition(&self) -> String {

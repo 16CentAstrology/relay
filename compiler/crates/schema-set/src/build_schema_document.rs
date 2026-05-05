@@ -14,28 +14,35 @@ use graphql_syntax::ConstantValue;
 use graphql_syntax::DefaultValue;
 use graphql_syntax::DirectiveDefinition;
 use graphql_syntax::EnumTypeDefinition;
+use graphql_syntax::EnumTypeExtension;
 use graphql_syntax::EnumValueDefinition;
 use graphql_syntax::FieldDefinition;
 use graphql_syntax::Identifier;
 use graphql_syntax::InputObjectTypeDefinition;
+use graphql_syntax::InputObjectTypeExtension;
 use graphql_syntax::InputValueDefinition;
 use graphql_syntax::IntNode;
 use graphql_syntax::InterfaceTypeDefinition;
+use graphql_syntax::InterfaceTypeExtension;
 use graphql_syntax::List;
 use graphql_syntax::ListTypeAnnotation;
 use graphql_syntax::NamedTypeAnnotation;
 use graphql_syntax::NonNullTypeAnnotation;
 use graphql_syntax::ObjectTypeDefinition;
+use graphql_syntax::ObjectTypeExtension;
 use graphql_syntax::OperationType;
 use graphql_syntax::OperationTypeDefinition;
 use graphql_syntax::ScalarTypeDefinition;
+use graphql_syntax::ScalarTypeExtension;
 use graphql_syntax::SchemaDefinition;
 use graphql_syntax::SchemaDocument;
+use graphql_syntax::SchemaExtension;
 use graphql_syntax::StringNode;
 use graphql_syntax::Token;
 use graphql_syntax::TokenKind;
 use graphql_syntax::TypeAnnotation;
 use graphql_syntax::UnionTypeDefinition;
+use graphql_syntax::UnionTypeExtension;
 use intern::string_key::StringKey;
 use intern::string_key::StringKeyIndexMap;
 use intern::string_key::StringKeyMap;
@@ -73,8 +80,11 @@ pub trait ToSDLDefinition<T> {
 
 impl ToSDLDefinition<SchemaDocument> for SchemaSet {
     fn to_sdl_definition(&self) -> SchemaDocument {
-        let root_schema_definition: Option<SchemaDefinition> = self.root_schema.to_sdl_definition();
-        let root_schema_definitions = root_schema_definition.map_or(Vec::new(), |d| vec![d]);
+        let root_schema_definitions = if self.root_schema.is_empty() {
+            Vec::new()
+        } else {
+            vec![self.root_schema.to_type_system_definition()]
+        };
 
         let mut directives = self
             .directives
@@ -89,15 +99,11 @@ impl ToSDLDefinition<SchemaDocument> for SchemaSet {
         let definitions = directives
             .into_iter()
             .map(TypeSystemDefinition::DirectiveDefinition)
-            .chain(
-                root_schema_definitions
-                    .into_iter()
-                    .map(TypeSystemDefinition::SchemaDefinition),
-            )
+            .chain(root_schema_definitions)
             .chain(
                 sorted_types
                     .into_iter()
-                    .map(|set_type| set_type.to_sdl_definition()),
+                    .map(|set_type| set_type.to_type_system_definition()),
             )
             .collect();
 
@@ -108,12 +114,21 @@ impl ToSDLDefinition<SchemaDocument> for SchemaSet {
     }
 }
 
-impl ToSDLDefinition<Option<SchemaDefinition>> for SetRootSchema {
-    fn to_sdl_definition(&self) -> Option<SchemaDefinition> {
-        if self.is_empty() {
-            return None;
-        }
+/// Convert a set entry into a `TypeSystemDefinition`. Implementors use the
+/// `self.definition.is_none()` pattern to decide whether to emit a base
+/// `*TypeDefinition` (when a top-level `definition` is present, i.e. the
+/// entry was originally declared as `type X { ... }` etc., possibly merged
+/// with extensions on top) or a `*TypeExtension` (when the entry only ever
+/// appeared as `extend X { ... }`). Without this dispatch, an extension-only
+/// entry would be printed as a fresh `type X { ... }` and conflict with the
+/// base `type X { ... }` from a paired SDL document via
+/// `SchemaError::DuplicateType` inside `SDLSchema::build`.
+pub trait ToTypeSystemDefinition {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition;
+}
 
+impl ToSDLDefinition<SchemaDefinition> for SetRootSchema {
+    fn to_sdl_definition(&self) -> SchemaDefinition {
         let mut root_schema_types = Vec::new();
         if let Some(op_type) = self.query_type {
             root_schema_types.push(OperationTypeDefinition {
@@ -137,7 +152,7 @@ impl ToSDLDefinition<Option<SchemaDefinition>> for SetRootSchema {
             });
         }
 
-        Some(SchemaDefinition {
+        SchemaDefinition {
             directives: build_directives(&self.directives),
             operation_types: List {
                 span: Span::empty(),
@@ -147,7 +162,39 @@ impl ToSDLDefinition<Option<SchemaDefinition>> for SetRootSchema {
             },
             description: build_description(&self.definition),
             span: Span::empty(),
-        })
+        }
+    }
+}
+
+impl ToTypeSystemDefinition for SetRootSchema {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let root_definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            TypeSystemDefinition::SchemaExtension(SchemaExtension {
+                directives: root_definition.directives,
+                operation_types: if root_definition.operation_types.items.is_empty() {
+                    None
+                } else {
+                    Some(root_definition.operation_types)
+                },
+                span: root_definition.span,
+            })
+        } else {
+            TypeSystemDefinition::SchemaDefinition(root_definition)
+        }
+    }
+}
+
+impl ToTypeSystemDefinition for SetType {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        match self {
+            SetType::Scalar(set_scalar) => set_scalar.to_type_system_definition(),
+            SetType::Enum(set_enum) => set_enum.to_type_system_definition(),
+            SetType::Object(set_object) => set_object.to_type_system_definition(),
+            SetType::Interface(set_interface) => set_interface.to_type_system_definition(),
+            SetType::Union(set_union) => set_union.to_type_system_definition(),
+            SetType::InputObject(set_input_object) => set_input_object.to_type_system_definition(),
+        }
     }
 }
 
@@ -170,33 +217,6 @@ impl ToSDLDefinition<DirectiveDefinition> for SetDirective {
     }
 }
 
-impl ToSDLDefinition<TypeSystemDefinition> for SetType {
-    fn to_sdl_definition(&self) -> TypeSystemDefinition {
-        match self {
-            SetType::Scalar(set_scalar) => {
-                TypeSystemDefinition::ScalarTypeDefinition(set_scalar.to_sdl_definition())
-            }
-            SetType::Enum(set_enum) => {
-                TypeSystemDefinition::EnumTypeDefinition(set_enum.to_sdl_definition())
-            }
-            SetType::Object(set_object) => {
-                TypeSystemDefinition::ObjectTypeDefinition(set_object.to_sdl_definition())
-            }
-            SetType::Interface(set_interface) => {
-                TypeSystemDefinition::InterfaceTypeDefinition(set_interface.to_sdl_definition())
-            }
-            SetType::Union(set_union) => {
-                TypeSystemDefinition::UnionTypeDefinition(set_union.to_sdl_definition())
-            }
-            SetType::InputObject(set_input_object) => {
-                TypeSystemDefinition::InputObjectTypeDefinition(
-                    set_input_object.to_sdl_definition(),
-                )
-            }
-        }
-    }
-}
-
 impl ToSDLDefinition<ScalarTypeDefinition> for SetScalar {
     fn to_sdl_definition(&self) -> ScalarTypeDefinition {
         ScalarTypeDefinition {
@@ -204,6 +224,22 @@ impl ToSDLDefinition<ScalarTypeDefinition> for SetScalar {
             directives: build_directives(&self.directives),
             description: build_description(&self.definition),
             span: Span::empty(),
+        }
+    }
+}
+
+impl ToTypeSystemDefinition for SetScalar {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            // `*Extension` syntax nodes do not carry a description.
+            TypeSystemDefinition::ScalarTypeExtension(ScalarTypeExtension {
+                name: definition.name,
+                directives: definition.directives,
+                span: definition.span,
+            })
+        } else {
+            TypeSystemDefinition::ScalarTypeDefinition(definition)
         }
     }
 }
@@ -242,6 +278,22 @@ impl ToSDLDefinition<EnumTypeDefinition> for SetEnum {
     }
 }
 
+impl ToTypeSystemDefinition for SetEnum {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            TypeSystemDefinition::EnumTypeExtension(EnumTypeExtension {
+                name: definition.name,
+                directives: definition.directives,
+                values: definition.values,
+                span: definition.span,
+            })
+        } else {
+            TypeSystemDefinition::EnumTypeDefinition(definition)
+        }
+    }
+}
+
 impl ToSDLDefinition<ObjectTypeDefinition> for SetObject {
     fn to_sdl_definition(&self) -> ObjectTypeDefinition {
         ObjectTypeDefinition {
@@ -251,6 +303,23 @@ impl ToSDLDefinition<ObjectTypeDefinition> for SetObject {
             fields: build_fields(&self.fields),
             description: build_description(&self.definition),
             span: Span::empty(),
+        }
+    }
+}
+
+impl ToTypeSystemDefinition for SetObject {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            TypeSystemDefinition::ObjectTypeExtension(ObjectTypeExtension {
+                name: definition.name,
+                interfaces: definition.interfaces,
+                directives: definition.directives,
+                fields: definition.fields,
+                span: definition.span,
+            })
+        } else {
+            TypeSystemDefinition::ObjectTypeDefinition(definition)
         }
     }
 }
@@ -268,6 +337,23 @@ impl ToSDLDefinition<InterfaceTypeDefinition> for SetInterface {
     }
 }
 
+impl ToTypeSystemDefinition for SetInterface {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            TypeSystemDefinition::InterfaceTypeExtension(InterfaceTypeExtension {
+                name: definition.name,
+                interfaces: definition.interfaces,
+                directives: definition.directives,
+                fields: definition.fields,
+                span: definition.span,
+            })
+        } else {
+            TypeSystemDefinition::InterfaceTypeDefinition(definition)
+        }
+    }
+}
+
 impl ToSDLDefinition<UnionTypeDefinition> for SetUnion {
     fn to_sdl_definition(&self) -> UnionTypeDefinition {
         UnionTypeDefinition {
@@ -276,6 +362,22 @@ impl ToSDLDefinition<UnionTypeDefinition> for SetUnion {
             members: build_members(&self.members),
             description: build_description(&self.definition),
             span: Span::empty(),
+        }
+    }
+}
+
+impl ToTypeSystemDefinition for SetUnion {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            TypeSystemDefinition::UnionTypeExtension(UnionTypeExtension {
+                name: definition.name,
+                directives: definition.directives,
+                members: definition.members,
+                span: definition.span,
+            })
+        } else {
+            TypeSystemDefinition::UnionTypeDefinition(definition)
         }
     }
 }
@@ -304,6 +406,22 @@ impl ToSDLDefinition<InputObjectTypeDefinition> for SetInputObject {
             fields,
             description: build_description(&self.definition),
             span: Span::empty(),
+        }
+    }
+}
+
+impl ToTypeSystemDefinition for SetInputObject {
+    fn to_type_system_definition(&self) -> TypeSystemDefinition {
+        let definition = self.to_sdl_definition();
+        if self.definition.is_none() {
+            TypeSystemDefinition::InputObjectTypeExtension(InputObjectTypeExtension {
+                name: definition.name,
+                directives: definition.directives,
+                fields: definition.fields,
+                span: definition.span,
+            })
+        } else {
+            TypeSystemDefinition::InputObjectTypeDefinition(definition)
         }
     }
 }
@@ -993,5 +1111,77 @@ mod tests {
         let zebra_pos = sdl.find("type Zebra").expect("type Zebra not found");
         // Types should be sorted alphabetically
         assert!(apple_pos < zebra_pos, "Types should be sorted: {}", sdl);
+    }
+
+    // --- Extension round-tripping ---
+
+    /// An entry that only ever appears as `extend interface Foo { ... }` (with
+    /// no base `interface Foo { ... }` anywhere in the SchemaSet) must be
+    /// printed back out as an extension. Otherwise downstream consumers that
+    /// pair this output with a base SDL document containing the original
+    /// `interface Foo { ... }` will hit `SchemaError::DuplicateType("Foo")`
+    /// when they call `SDLSchema::build`.
+    #[test]
+    fn test_extension_only_type_round_trips_as_extension() {
+        let extension_sdl = "extend interface Foo { extension: String }";
+        let extension_doc =
+            parse_schema_document(extension_sdl, SourceLocationKey::generated()).unwrap();
+        let set = SchemaSet::from_schema_documents_with_extensions(&[], &[extension_doc]).unwrap();
+
+        let printed = format!("{}", set.to_sdl_definition());
+
+        assert!(
+            printed.contains("extend interface Foo"),
+            "Expected output to contain `extend interface Foo`, got:\n{}",
+            printed,
+        );
+        assert!(
+            !printed
+                .split('\n')
+                .any(|line| line.starts_with("interface Foo")),
+            "Output should not contain a bare `interface Foo` definition (only \
+             `extend interface Foo`), got:\n{}",
+            printed,
+        );
+    }
+
+    /// When a type has BOTH a base definition and one or more extensions in
+    /// the same SchemaSet, the merged result still has a top-level definition
+    /// and must be printed as a single `interface Foo { ... }` (not a
+    /// definition + an extension). This is the historical behaviour and the
+    /// extension-side fix above must not regress it.
+    #[test]
+    fn test_base_plus_extension_round_trips_as_single_definition() {
+        let base_doc = parse_schema_document(
+            "interface Foo { base: String }",
+            SourceLocationKey::generated(),
+        )
+        .unwrap();
+        let ext_doc = parse_schema_document(
+            "extend interface Foo { extension: String }",
+            SourceLocationKey::generated(),
+        )
+        .unwrap();
+        let set =
+            SchemaSet::from_schema_documents_with_extensions(&[base_doc], &[ext_doc]).unwrap();
+
+        let printed = format!("{}", set.to_sdl_definition());
+
+        assert!(
+            printed.contains("interface Foo {"),
+            "Expected output to contain `interface Foo {{`, got:\n{}",
+            printed,
+        );
+        assert!(
+            !printed.contains("extend interface Foo"),
+            "Output should not contain `extend interface Foo` once a base \
+             definition is present, got:\n{}",
+            printed,
+        );
+        assert!(
+            printed.contains("base: String") && printed.contains("extension: String"),
+            "Both base and extension fields should be present, got:\n{}",
+            printed,
+        );
     }
 }

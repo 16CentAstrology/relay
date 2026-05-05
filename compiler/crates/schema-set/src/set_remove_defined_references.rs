@@ -32,7 +32,7 @@ use crate::SetObject;
 use crate::SetScalar;
 use crate::SetType;
 use crate::SetUnion;
-use crate::schema_set::CanBeClientDefinition;
+use crate::schema_set::HasDefinitionItem;
 use crate::schema_set::SetDirectiveValue;
 use crate::schema_set::SetRootSchema;
 use crate::schema_set::StringKeyNamed;
