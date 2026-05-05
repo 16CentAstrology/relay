@@ -18,6 +18,7 @@ use common::ObjectName;
 use common::ScalarName;
 use common::SourceLocationKey;
 use common::UnionName;
+use errors::try_all;
 use graphql_ir::Visitor;
 use graphql_syntax::ConstantValue;
 use graphql_syntax::DirectiveLocation;
@@ -173,11 +174,24 @@ impl SchemaSet {
         Ok(used_schema)
     }
 
-    pub fn from_schema_documents(schema_documents: &[SchemaDocument]) -> DiagnosticsResult<Self> {
+    pub fn from_base_schema_documents(
+        schema_documents: &[SchemaDocument],
+    ) -> DiagnosticsResult<Self> {
+        Self::from_schema_documents_with_extensions(schema_documents, &[])
+    }
+
+    pub fn from_schema_documents_with_extensions(
+        schema_documents: &[SchemaDocument],
+        extension_documents: &[SchemaDocument],
+    ) -> DiagnosticsResult<Self> {
         let mut used_schema = SchemaSet::new();
-        for document in schema_documents {
-            used_schema.merge_sdl_document(document, false)?;
-        }
+        try_all(
+            schema_documents
+                .iter()
+                .map(|document| (document, false))
+                .chain(extension_documents.iter().map(|document| (document, true)))
+                .map(|(document, is_ext)| used_schema.merge_sdl_document(document, is_ext)),
+        )?;
         Ok(used_schema)
     }
 
@@ -1350,7 +1364,7 @@ mod tests {
     }
 
     fn set_from_sdl(sdl: &str) -> SchemaSet {
-        SchemaSet::from_schema_documents(&[parse_schema_document(
+        SchemaSet::from_base_schema_documents(&[parse_schema_document(
             sdl,
             SourceLocationKey::generated(),
         )
@@ -1371,7 +1385,7 @@ mod tests {
         assert!(!set.is_empty());
     }
 
-    // --- from_schema_documents ---
+    // --- from_base_schema_documents ---
 
     #[test]
     fn test_from_schema_documents_single() {
@@ -1380,7 +1394,7 @@ mod tests {
             SourceLocationKey::generated(),
         )
         .unwrap();
-        let set = SchemaSet::from_schema_documents(&[doc]).unwrap();
+        let set = SchemaSet::from_base_schema_documents(&[doc]).unwrap();
         assert!(!set.is_empty());
         assert!(set.types.contains_key(&"Query".intern()));
     }
@@ -1394,7 +1408,7 @@ mod tests {
         .unwrap();
         let doc2 =
             parse_schema_document("type User { id: ID! }", SourceLocationKey::generated()).unwrap();
-        let set = SchemaSet::from_schema_documents(&[doc1, doc2]).unwrap();
+        let set = SchemaSet::from_base_schema_documents(&[doc1, doc2]).unwrap();
         assert!(set.types.contains_key(&"Query".intern()));
         assert!(set.types.contains_key(&"User".intern()));
     }
@@ -1466,6 +1480,97 @@ mod tests {
         assert!(
             !intersected.types.contains_key(&"Baz".intern()),
             "Baz should not be in intersection"
+        );
+    }
+
+    fn set_from_base_and_extensions(base_sdl: &str, ext_sdl: &str) -> SchemaSet {
+        let base_doc = parse_schema_document(base_sdl, SourceLocationKey::generated()).unwrap();
+        let ext_doc = parse_schema_document(ext_sdl, SourceLocationKey::generated()).unwrap();
+        SchemaSet::from_schema_documents_with_extensions(&[base_doc], &[ext_doc]).unwrap()
+    }
+
+    /// Asserts the base/client printed output of `actual_set` equals what you
+    /// would get by parsing `expected_base_sdl` + `expected_ext_sdl` through
+    /// `from_schema_documents_with_extensions` and printing it.
+    macro_rules! assert_base_and_extensions_eq {
+        ($actual_set:expr, $expected_base:expr, $expected_ext:expr $(,)?) => {
+            let (actual_base_defs, actual_client_defs) =
+                $actual_set.print_base_and_client_definitions().unwrap();
+            let expected = set_from_base_and_extensions($expected_base, $expected_ext);
+            let (expected_base_defs, expected_client_defs) =
+                expected.print_base_and_client_definitions().unwrap();
+            assert_eq!(
+                actual_base_defs.join("\n\n"),
+                expected_base_defs.join("\n\n"),
+                "base printed schema does not match expected"
+            );
+            assert_eq!(
+                actual_client_defs.join("\n\n"),
+                expected_client_defs.join("\n\n"),
+                "extensions printed schema does not match expected"
+            );
+        };
+    }
+
+    #[test]
+    fn test_from_schema_documents_with_extensions_partitions_definitions() {
+        // A type defined in a base document and an `extend type` from an extension
+        // document should land on opposite sides of the base/client split.
+        let set = set_from_base_and_extensions(
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
+        );
+
+        assert_base_and_extensions_eq!(
+            set,
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
+        );
+    }
+
+    #[test]
+    fn test_intersect_set_with_extensions() {
+        // Both `a` and `b` have base + extensions for Query, but only `client_field`
+        // is common to the extension halves. `Foo` (base-only in `a`) and `Bar`
+        // (base-only in `b`) drop out, as does `extra_client` (only in b).
+        let a = set_from_base_and_extensions(
+            "type Query { name: String } type Foo { id: ID! }",
+            "extend type Query { client_field: Int }",
+        );
+        let b = set_from_base_and_extensions(
+            "type Query { name: String } type Bar { id: ID! }",
+            "extend type Query { client_field: Int extra_client: String }",
+        );
+
+        let empty_directives = intern::string_key::StringKeySet::default();
+        let intersected = a.intersect_set(&b, &empty_directives).unwrap();
+
+        assert_base_and_extensions_eq!(
+            intersected,
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
+        );
+    }
+
+    #[test]
+    fn test_union_set_with_extensions() {
+        // Union should preserve base/extension sourcing of the inputs.
+        let a = set_from_base_and_extensions(
+            "type Query { name: String }",
+            "extend type Query { client_a: Int }",
+        );
+        let b = set_from_base_and_extensions(
+            "type Query { age: Int }",
+            "extend type Query { client_b: String }",
+        );
+
+        let empty_directives = intern::string_key::StringKeySet::default();
+        let unioned = a.union_set(&b, &empty_directives).unwrap();
+
+        assert_base_and_extensions_eq!(
+            unioned,
+            "type Query { name: String age: Int }",
+            "extend type Query { client_a: Int client_b: String }",
         );
     }
 

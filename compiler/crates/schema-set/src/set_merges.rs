@@ -747,7 +747,7 @@ pub mod tests {
     use crate::ToSDLDefinition;
 
     fn set_from_str(sdl: &str) -> SchemaSet {
-        SchemaSet::from_schema_documents(&[parse_schema_document(
+        SchemaSet::from_base_schema_documents(&[parse_schema_document(
             sdl,
             SourceLocationKey::generated(),
         )
@@ -1149,6 +1149,77 @@ pub mod tests {
             "type A @deprecated { id: ID! }",
             r#"type A @deprecated(reason: "use B") { id: ID! }"#,
             r#"type A @deprecated(reason: "use B") { id: ID! }"#,
+        );
+    }
+
+    // --- Base + extension tests ---
+
+    fn set_from_base_and_extensions(base_sdl: &str, ext_sdl: &str) -> SchemaSet {
+        let base_doc = parse_schema_document(base_sdl, SourceLocationKey::generated()).unwrap();
+        let ext_doc = parse_schema_document(ext_sdl, SourceLocationKey::generated()).unwrap();
+        SchemaSet::from_schema_documents_with_extensions(&[base_doc], &[ext_doc]).unwrap()
+    }
+
+    /// Asserts the base/client printed output of `actual_set` equals what you
+    /// would get by parsing `expected_base_sdl` + `expected_ext_sdl` through
+    /// `from_schema_documents_with_extensions` and printing it.
+    macro_rules! assert_base_and_extensions_eq {
+        ($actual_set:expr, $expected_base:expr, $expected_ext:expr $(,)?) => {
+            let (actual_base_defs, actual_client_defs) =
+                $actual_set.print_base_and_client_definitions().unwrap();
+            let expected = set_from_base_and_extensions($expected_base, $expected_ext);
+            let (expected_base_defs, expected_client_defs) =
+                expected.print_base_and_client_definitions().unwrap();
+            assert_eq!(
+                actual_base_defs.join("\n\n"),
+                expected_base_defs.join("\n\n"),
+                "base printed schema does not match expected"
+            );
+            assert_eq!(
+                actual_client_defs.join("\n\n"),
+                expected_client_defs.join("\n\n"),
+                "extensions printed schema does not match expected"
+            );
+        };
+    }
+
+    #[test]
+    fn test_merge_preserves_base_vs_extension_partition() {
+        // Build a set that has a base type and a client extension on it, then
+        // merge in another set that adds new fields on both sides.
+        let mut left = set_from_base_and_extensions(
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
+        );
+        let right = set_from_base_and_extensions(
+            "type Query { age: Int }",
+            "extend type Query { other_client_field: String }",
+        );
+        left.merge(right).unwrap();
+
+        assert_base_and_extensions_eq!(
+            left,
+            "type Query { name: String age: Int }",
+            "extend type Query { client_field: Int other_client_field: String }",
+        );
+    }
+
+    #[test]
+    fn test_merge_into_base_only_set_with_extensions_marks_new_fields_as_extension() {
+        // `left` is purely base, `right` brings extensions for the same type.
+        // After merge, the extension-tagged field should still print under the
+        // client (extensions) half.
+        let mut left = set_from_str("type Query { name: String }");
+        let right = set_from_base_and_extensions(
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
+        );
+        left.merge(right).unwrap();
+
+        assert_base_and_extensions_eq!(
+            left,
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
         );
     }
 }

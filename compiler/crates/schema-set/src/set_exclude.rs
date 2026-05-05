@@ -870,7 +870,7 @@ pub mod tests {
     use crate::ToSDLDefinition;
 
     fn set_from_str(sdl: &str) -> SchemaSet {
-        SchemaSet::from_schema_documents(&[parse_schema_document(
+        SchemaSet::from_base_schema_documents(&[parse_schema_document(
             sdl,
             SourceLocationKey::generated(),
         )
@@ -1802,6 +1802,71 @@ pub mod tests {
                 base_restricted_directives: ["source".intern()].iter().cloned().collect(),
                 ..SafeExclusionOptions::default()
             },
+        );
+    }
+
+    // --- Base + extension tests ---
+
+    fn set_from_base_and_extensions(base_sdl: &str, ext_sdl: &str) -> SchemaSet {
+        let base_doc = parse_schema_document(base_sdl, SourceLocationKey::generated()).unwrap();
+        let ext_doc = parse_schema_document(ext_sdl, SourceLocationKey::generated()).unwrap();
+        SchemaSet::from_schema_documents_with_extensions(&[base_doc], &[ext_doc]).unwrap()
+    }
+
+    /// Asserts the base/client printed output of `actual_set` equals what you
+    /// would get by parsing `expected_base_sdl` + `expected_ext_sdl` through
+    /// `from_schema_documents_with_extensions` and printing it.
+    macro_rules! assert_base_and_extensions_eq {
+        ($actual_set:expr, $expected_base:expr, $expected_ext:expr $(,)?) => {
+            let (actual_base_defs, actual_client_defs) =
+                $actual_set.print_base_and_client_definitions().unwrap();
+            let expected = set_from_base_and_extensions($expected_base, $expected_ext);
+            let (expected_base_defs, expected_client_defs) =
+                expected.print_base_and_client_definitions().unwrap();
+            assert_eq!(
+                actual_base_defs.join("\n\n"),
+                expected_base_defs.join("\n\n"),
+                "base printed schema does not match expected"
+            );
+            assert_eq!(
+                actual_client_defs.join("\n\n"),
+                expected_client_defs.join("\n\n"),
+                "extensions printed schema does not match expected"
+            );
+        };
+    }
+
+    #[test]
+    fn test_exclude_extension_field_only_keeps_base_field() {
+        // Original has both a base field and a client-extension field on Query.
+        // We exclude only the extension-tagged field; the base field must remain
+        // and the extensions half should now be empty.
+        let original = set_from_base_and_extensions(
+            "type Query { name: String }",
+            "extend type Query { client_field: Int }",
+        );
+        let to_exclude =
+            set_from_base_and_extensions("", "extend type Query { client_field: Int }");
+        let after = original.exclude(&to_exclude, &SafeExclusionOptions::default());
+
+        assert_base_and_extensions_eq!(after, "type Query { name: String }", "");
+    }
+
+    #[test]
+    fn test_exclude_one_extension_field_keeps_other_extension_fields() {
+        // Excluding a single extension-tagged field should leave both the base
+        // half and the other extension field untouched.
+        let original = set_from_base_and_extensions(
+            "type Query { name: String age: Int }",
+            "extend type Query { c1: Int c2: String }",
+        );
+        let to_exclude = set_from_base_and_extensions("", "extend type Query { c1: Int }");
+        let after = original.exclude(&to_exclude, &SafeExclusionOptions::default());
+
+        assert_base_and_extensions_eq!(
+            after,
+            "type Query { name: String age: Int }",
+            "extend type Query { c2: String }",
         );
     }
 }

@@ -522,7 +522,7 @@ mod tests {
     use crate::SchemaSet;
 
     fn set_from_sdl(sdl: &str) -> SchemaSet {
-        SchemaSet::from_schema_documents(&[parse_schema_document(
+        SchemaSet::from_base_schema_documents(&[parse_schema_document(
             sdl,
             SourceLocationKey::generated(),
         )
