@@ -5,32 +5,30 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import * as React from "react";
-
+import * as React from 'react';
 import {
-    _FragmentRefs,
-    _RefType,
-    CacheConfig,
-    ConcreteRequest,
-    DisposeFn,
-    Disposable,
-    Environment,
-    FetchPolicy,
-    FragmentType,
-    GraphQLResponse,
-    IEnvironment,
-    Observable,
-    Observer,
-    OperationType,
-    PreloadableConcreteRequest,
-    ReaderFragment,
-    RenderPolicy,
-    Variables,
-    VariablesOf,
-} from "relay-runtime";
+  _FragmentRefs,
+  _RefType,
+  CacheConfig,
+  ConcreteRequest,
+  Disposable,
+  DisposeFn,
+  Environment,
+  FetchPolicy,
+  FragmentType,
+  GraphQLResponse,
+  IEnvironment,
+  Observable,
+  Observer,
+  OperationType,
+  PreloadableConcreteRequest,
+  RenderPolicy,
+  Variables,
+  VariablesOf,
+} from 'relay-runtime';
 
-export { FragmentRef } from "relay-runtime";
-export { VariablesOf } from "relay-runtime";
+export { FragmentRef } from 'relay-runtime';
+export { VariablesOf } from 'relay-runtime';
 
 // --- Legacy container types ---
 
@@ -52,7 +50,7 @@ export interface RelayRefetchProp {
 }
 export interface RefetchOptions {
     force?: boolean | undefined;
-    fetchPolicy?: "store-or-network" | "network-only" | undefined;
+    fetchPolicy?: 'store-or-network' | 'network-only' | undefined;
 }
 
 type ObserverOrCallback = Observer<void> | ((error: Error | null | undefined) => void);
@@ -85,11 +83,11 @@ export type MappedFragmentProps<T> = {
 // --- Fragment key types (from helpers) ---
 
 export type KeyType<TData = unknown> = Readonly<{
-    " $data"?: TData | undefined;
-    " $fragmentSpreads": FragmentType;
+    ' $data'?: TData | undefined;
+    ' $fragmentSpreads': FragmentType;
 }>;
 
-export type KeyTypeData<TKey extends KeyType<TData>, TData = unknown> = Required<TKey>[" $data"];
+export type KeyTypeData<TKey extends KeyType<TData>, TData = unknown> = Required<TKey>[' $data'];
 
 export type ArrayKeyType<TData = unknown> = ReadonlyArray<KeyType<readonly TData[]> | null | undefined>;
 export type ArrayKeyTypeData<TKey extends ArrayKeyType<TData>, TData = unknown> = KeyTypeData<
@@ -97,14 +95,14 @@ export type ArrayKeyTypeData<TKey extends ArrayKeyType<TData>, TData = unknown> 
 >;
 
 export type GetEntryPointParamsFromEntryPoint<TEntryPoint> = TEntryPoint extends EntryPoint<
-    infer TEntryPointComponent,
+    infer _TEntryPointComponent,
     infer TEntryPointParams
 > ? TEntryPointParams
     : never;
 
 export type GetEntryPointComponentFromEntryPoint<TEntryPoint> = TEntryPoint extends EntryPoint<
     infer TEntryPointComponent,
-    infer TEntryPointParams
+    infer _TEntryPointParams
 > ? TEntryPointComponent
     : never;
 
@@ -118,7 +116,7 @@ export interface JSResourceReference<TModule> {
     load(): Promise<TModule>;
 }
 
-export type PreloadFetchPolicy = "store-or-network" | "store-and-network" | "network-only";
+export type PreloadFetchPolicy = 'store-or-network' | 'store-and-network' | 'network-only';
 
 export type PreloadOptions = Readonly<{
     fetchKey?: string | number | undefined;
@@ -138,7 +136,7 @@ export type PreloadedQuery<
     TQuery extends OperationType,
     TEnvironmentProviderOptions = EnvironmentProviderOptions,
 > = Readonly<{
-    kind: "PreloadedQuery";
+    kind: 'PreloadedQuery';
     environment: IEnvironment;
     environmentProviderOptions?: TEnvironmentProviderOptions | null | undefined;
     fetchKey: string | number;
@@ -154,7 +152,7 @@ export type PreloadedQuery<
 
 export type PreloadQueryStatus = Readonly<{
     cacheConfig?: CacheConfig | null | undefined;
-    source: "cache" | "network";
+    source: 'cache' | 'network';
     fetchTime?: number | null | undefined;
 }>;
 
@@ -221,7 +219,7 @@ type PreloadedEntryPoints<TEntryPoints> = TEntryPoints extends Record<
     : never;
 
 export type PreloadProps<
-    TPreloadParams extends Record<string, unknown>,
+    _TPreloadParams extends Record<string, unknown>,
     TPreloadedQueries extends Record<string, OperationType>,
     TNestedEntryPoints extends Record<string, EntryPoint<any, any> | undefined>,
     TExtraProps extends Record<string, unknown> | null,
@@ -248,7 +246,7 @@ export type EntryPointComponent<
 export type PreloadedEntryPoint<TEntryPointComponent> = TEntryPointComponent extends EntryPointComponent<
     infer TPreloadedQueries,
     infer TNestedEntryPoints,
-    infer TRuntimeProps,
+    infer _TRuntimeProps,
     infer TExtraProps
 > ? Readonly<{
         dispose: DisposeFn;
@@ -296,7 +294,7 @@ export type RefetchFn<TQuery extends OperationType, TOptions = RefetchableOption
 
 export type RefetchFnDynamic<
     TQuery extends OperationType,
-    TKey extends KeyType | null | undefined,
+    _TKey extends KeyType | null | undefined,
     TOptions = RefetchableOptions,
 > = RefetchInexactDynamicResponse<TQuery, TOptions> & RefetchExactDynamicResponse<TQuery, TOptions>;
 
@@ -349,12 +347,12 @@ export interface InternalRefetchableOptions extends RefetchableOptions {
 
 export type RefetchableAction =
     | {
-        type: "reset";
+        type: 'reset';
         environment: IEnvironment;
         fragmentIdentifier: string;
     }
     | {
-        type: "refetch";
+        type: 'refetch';
         refetchVariables: Variables;
         fetchPolicy?: FetchPolicy | undefined;
         renderPolicy?: RenderPolicy | undefined;

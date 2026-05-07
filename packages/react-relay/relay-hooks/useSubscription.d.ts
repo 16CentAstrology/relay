@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { GraphQLSubscriptionConfig, OperationType, requestSubscription } from "relay-runtime";
+import {GraphQLSubscriptionConfig, OperationType, requestSubscription} from 'relay-runtime';
 
 export function useSubscription<TSubscriptionPayload extends OperationType>(
     // The actual subtype of OperationType is required to allow for type inference inside GraphQLSubscriptionConfig.s

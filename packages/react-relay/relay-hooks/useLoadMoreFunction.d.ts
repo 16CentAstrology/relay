@@ -6,18 +6,18 @@
  */
 
 import {
-    ConcreteRequest,
-    Disposable,
-    DisposeFn,
-    GraphQLResponse,
-    Observer,
-    OperationType,
-    ReaderFragment,
-    ReaderPaginationMetadata,
-    VariablesOf,
-} from "relay-runtime";
+  ConcreteRequest,
+  Disposable,
+  DisposeFn,
+  GraphQLResponse,
+  Observer,
+  OperationType,
+  ReaderFragment,
+  ReaderPaginationMetadata,
+  VariablesOf,
+} from 'relay-runtime';
 
-export type Direction = "forward" | "backward";
+export type Direction = 'forward' | 'backward';
 
 export type LoadMoreFn<TQuery extends OperationType> = (
     count: number,

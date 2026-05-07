@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { GraphQLTaggedNode, IEnvironment, OperationType, PreloadableConcreteRequest, VariablesOf } from "relay-runtime";
-import { EnvironmentProviderOptions, LoadQueryOptions, PreloadedQuery } from "../ReactRelayTypes";
+import {EnvironmentProviderOptions, LoadQueryOptions, PreloadedQuery} from '../ReactRelayTypes';
+import {GraphQLTaggedNode, IEnvironment, OperationType, PreloadableConcreteRequest, VariablesOf} from 'relay-runtime';
 
 export function loadQuery<
     TQuery extends OperationType,

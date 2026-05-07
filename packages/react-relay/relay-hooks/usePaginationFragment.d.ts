@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { GraphQLTaggedNode, OperationType } from "relay-runtime";
-import { KeyType, KeyTypeData, RefetchFnDynamic } from "../ReactRelayTypes";
-import { LoadMoreFn } from "./useLoadMoreFunction";
+import {KeyType, KeyTypeData, RefetchFnDynamic} from '../ReactRelayTypes';
+import { LoadMoreFn } from './useLoadMoreFunction';
+import {GraphQLTaggedNode, OperationType} from 'relay-runtime';
 
 export interface usePaginationFragmentHookType<
     TQuery extends OperationType,

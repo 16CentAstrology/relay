@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { DataID } from "../util/RelayRuntimeTypes";
-import { RecordState } from "./RelayRecordState";
-import { MutableRecordSource, Record, RecordMap } from "./RelayStoreTypes";
+import { DataID } from '../util/RelayRuntimeTypes';
+import { RecordState } from './RelayRecordState';
+import {MutableRecordSource, Record, RecordMap} from './RelayStoreTypes';
 
 export class RelayRecordSource implements MutableRecordSource {
     constructor(records?: RecordMap);

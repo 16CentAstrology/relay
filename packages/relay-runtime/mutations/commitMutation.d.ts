@@ -5,11 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { PayloadError, UploadableMap } from "../network/RelayNetworkTypes";
-import { GraphQLTaggedNode } from "../query/GraphQLTag";
-import { Environment, SelectorStoreUpdater } from "../store/RelayStoreTypes";
-import { CacheConfig, Disposable, Variables } from "../util/RelayRuntimeTypes";
-import { DeclarativeMutationConfig } from "./RelayDeclarativeMutationConfig";
+import {PayloadError, UploadableMap} from '../network/RelayNetworkTypes';
+import { GraphQLTaggedNode } from '../query/GraphQLTag';
+import {Environment, SelectorStoreUpdater} from '../store/RelayStoreTypes';
+import {CacheConfig, Disposable} from '../util/RelayRuntimeTypes';
+import { DeclarativeMutationConfig } from './RelayDeclarativeMutationConfig';
 
 export interface MutationParameters {
     readonly response: Record<string, unknown>;
@@ -23,7 +23,7 @@ export interface MutationConfig<TOperation extends MutationParameters> {
     mutation: GraphQLTaggedNode;
     onError?: ((error: Error) => void) | null | undefined;
     onCompleted?:
-        | ((response: TOperation["response"], errors: readonly PayloadError[] | null | undefined) => void)
+        | ((response: TOperation['response'], errors: readonly PayloadError[] | null | undefined) => void)
         | null
         | undefined;
     onUnsubscribe?: (() => void | null | undefined) | undefined;
@@ -31,11 +31,11 @@ export interface MutationConfig<TOperation extends MutationParameters> {
      * An object whose type matches the raw response type of the mutation. Make sure you decorate
      * your mutation with `@raw_response_type` if you are using this field.
      */
-    optimisticResponse?: (TOperation["rawResponse"] extends Record<string, unknown> ? TOperation["rawResponse"] : never) | undefined;
-    optimisticUpdater?: SelectorStoreUpdater<TOperation["response"]> | null | undefined;
-    updater?: SelectorStoreUpdater<TOperation["response"]> | null | undefined;
+    optimisticResponse?: (TOperation['rawResponse'] extends Record<string, unknown> ? TOperation['rawResponse'] : never) | undefined;
+    optimisticUpdater?: SelectorStoreUpdater<TOperation['response']> | null | undefined;
+    updater?: SelectorStoreUpdater<TOperation['response']> | null | undefined;
     uploadables?: UploadableMap | null | undefined;
-    variables: TOperation["variables"];
+    variables: TOperation['variables'];
 }
 
 /**

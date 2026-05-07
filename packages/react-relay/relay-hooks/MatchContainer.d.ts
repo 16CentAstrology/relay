@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ComponentType, ElementType, ReactNode } from "react";
+import {ComponentType, ElementType, ReactNode} from 'react';
 
 /**
  * Renders the results of a data-driven dependency fetched with the `@match`
@@ -78,7 +78,7 @@ type TypenameOnlyPointer = Readonly<{ __typename: string }>;
 export type MatchPointer = Readonly<{
     __fragmentPropName?: string | null | undefined;
     __module_component?: unknown | undefined;
-    " $fragmentSpreads": unknown;
+    ' $fragmentSpreads': unknown;
 }>;
 
 export type MatchContainerProps<TProps = Record<string, unknown>, TFallback = ReactNode> = Readonly<{
