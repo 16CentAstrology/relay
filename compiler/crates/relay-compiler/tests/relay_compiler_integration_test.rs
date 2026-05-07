@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<eb070c763d5bb50cdabba72114e401d9>>
+ * @generated SignedSource<<1e9e4bc9044482d049af008dcb775cf1>>
  */
 
 mod relay_compiler_integration;
@@ -325,6 +325,13 @@ async fn mixed_interface_missing_node_interface_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/mixed_interface_missing_node_interface.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/mixed_interface_missing_node_interface.invalid.expected");
     test_fixture(transform_fixture, file!(), "mixed_interface_missing_node_interface.invalid.input", "relay_compiler_integration/fixtures/mixed_interface_missing_node_interface.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn mixed_interface_nested_object_type_not_refined() {
+    let input = include_str!("relay_compiler_integration/fixtures/mixed_interface_nested_object_type_not_refined.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/mixed_interface_nested_object_type_not_refined.expected");
+    test_fixture(transform_fixture, file!(), "mixed_interface_nested_object_type_not_refined.input", "relay_compiler_integration/fixtures/mixed_interface_nested_object_type_not_refined.expected", input, expected).await;
 }
 
 #[tokio::test]
