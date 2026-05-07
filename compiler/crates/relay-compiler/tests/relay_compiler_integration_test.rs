@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<1e9e4bc9044482d049af008dcb775cf1>>
+ * @generated SignedSource<<9cbe7be564cecc3112995dcde9c945eb>>
  */
 
 mod relay_compiler_integration;
@@ -318,6 +318,20 @@ async fn live_resolver_implements_interface_field() {
     let input = include_str!("relay_compiler_integration/fixtures/live_resolver_implements_interface_field.input");
     let expected = include_str!("relay_compiler_integration/fixtures/live_resolver_implements_interface_field.expected");
     test_fixture(transform_fixture, file!(), "live_resolver_implements_interface_field.input", "relay_compiler_integration/fixtures/live_resolver_implements_interface_field.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn mixed_interface_direct_field_selection() {
+    let input = include_str!("relay_compiler_integration/fixtures/mixed_interface_direct_field_selection.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/mixed_interface_direct_field_selection.expected");
+    test_fixture(transform_fixture, file!(), "mixed_interface_direct_field_selection.input", "relay_compiler_integration/fixtures/mixed_interface_direct_field_selection.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn mixed_interface_fragment_spread() {
+    let input = include_str!("relay_compiler_integration/fixtures/mixed_interface_fragment_spread.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/mixed_interface_fragment_spread.expected");
+    test_fixture(transform_fixture, file!(), "mixed_interface_fragment_spread.input", "relay_compiler_integration/fixtures/mixed_interface_fragment_spread.expected", input, expected).await;
 }
 
 #[tokio::test]
