@@ -40,7 +40,9 @@ use serde_bser::value::Value;
 pub use source_control_update_status::SourceControlUpdateStatus;
 use tokio::sync::broadcast;
 pub use watchman_client::prelude::Clock;
+pub use watchman_file_source::ChangesSinceQuery;
 use watchman_file_source::WatchmanFileSource;
+pub use watchman_file_source::query_changes_since;
 
 pub use self::external_file_source::ExternalFileSourceResult;
 pub use self::extract_graphql::FsSourceReader;
