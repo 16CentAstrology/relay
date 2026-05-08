@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<9cbe7be564cecc3112995dcde9c945eb>>
+ * @generated SignedSource<<f4ae16968134971fac3e74162e89c4af>>
  */
 
 mod relay_compiler_integration;
@@ -262,6 +262,13 @@ async fn incremental_fuzz_multiproject_cross_fragment_change() {
     let input = include_str!("relay_compiler_integration/fixtures/incremental_fuzz_multiproject_cross_fragment_change.input");
     let expected = include_str!("relay_compiler_integration/fixtures/incremental_fuzz_multiproject_cross_fragment_change.expected");
     test_fixture(transform_fixture, file!(), "incremental_fuzz_multiproject_cross_fragment_change.input", "relay_compiler_integration/fixtures/incremental_fuzz_multiproject_cross_fragment_change.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn incremental_fuzz_subscription_root_type_change() {
+    let input = include_str!("relay_compiler_integration/fixtures/incremental_fuzz_subscription_root_type_change.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/incremental_fuzz_subscription_root_type_change.expected");
+    test_fixture(transform_fixture, file!(), "incremental_fuzz_subscription_root_type_change.input", "relay_compiler_integration/fixtures/incremental_fuzz_subscription_root_type_change.expected", input, expected).await;
 }
 
 #[tokio::test]
