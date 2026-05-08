@@ -359,10 +359,14 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
                 let incremental_build_time =
                     incremental_build_event.start("incremental_build_time");
 
+                // When running as a daemon, collect changes to generated
+                // artifacts so that external modifications trigger
+                // recompilation of the affected source definitions.
+                let should_collect_changed_artifacts = self.config.daemon_build_status.is_some();
                 let had_new_changes = match compiler_state.merge_file_source_changes(
                     &self.config,
                     self.perf_logger.as_ref(),
-                    false,
+                    should_collect_changed_artifacts,
                 ) {
                     Ok(b) => b,
                     Err(err) => {
@@ -372,6 +376,11 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
                         return;
                     }
                 };
+
+                // Also rebuild when generated artifacts changed on disk,
+                // even if no source files changed.
+                let had_new_changes =
+                    had_new_changes || !compiler_state.dirty_artifact_paths.is_empty();
 
                 if had_new_changes {
                     self.config.status_reporter.build_starts();
