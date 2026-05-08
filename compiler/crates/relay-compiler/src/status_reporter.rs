@@ -271,6 +271,18 @@ impl BuildStatus {
         self.build_complete_notify.notify_waiters();
     }
 
+    /// Signal that the compiler task has crashed (panicked or exited unexpectedly).
+    ///
+    /// Stores an error build result and unblocks any pending `wait_for_idle()`
+    /// calls so clients receive the error instead of hanging forever.
+    pub fn compiler_crashed(&self, message: String) {
+        self.set_build_result(BuildResult::Errors(vec![(
+            DiagnosticSeverity::ERROR,
+            message,
+        )]));
+        self.build_completed();
+    }
+
     /// Wait until no build is in progress
     pub async fn wait_for_idle(&self) {
         let notified = self.build_complete_notify.notified();
