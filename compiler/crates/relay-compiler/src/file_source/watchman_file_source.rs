@@ -371,12 +371,14 @@ async fn query_file_result(
     debug_query_results(&query_result, "graphql");
 
     let files = query_result.files.ok_or(Error::EmptyQueryResult)?;
-    Ok(FileSourceResult::Watchman(WatchmanFileSourceResult {
-        files,
-        resolved_root: resolved_root.clone(),
-        clock: query_result.clock,
-        saved_state_info: query_result.saved_state_info,
-    }))
+    Ok(FileSourceResult::Watchman(Box::new(
+        WatchmanFileSourceResult {
+            files,
+            resolved_root: resolved_root.clone(),
+            clock: query_result.clock,
+            saved_state_info: query_result.saved_state_info,
+        },
+    )))
 }
 
 fn debug_query_results(query_result: &QueryResult<WatchmanFile>, extension_filter: &str) {

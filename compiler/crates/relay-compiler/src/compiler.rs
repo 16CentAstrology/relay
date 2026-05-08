@@ -186,12 +186,12 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
                         let next_change = subscription.next_change().await;
                         match next_change {
                             Ok(FileSourceSubscriptionNextChange::Watchman(watchman_next_change)) => {
-                                match watchman_next_change {
+                                match *watchman_next_change {
                                     WatchmanFileSourceSubscriptionNextChange::Result(file_source_changes) => {
                                         pending_file_source_changes
                                             .write()
                                             .unwrap()
-                                            .push(FileSourceResult::Watchman(file_source_changes));
+                                            .push(FileSourceResult::Watchman(Box::new(file_source_changes)));
                                         notify_sender.notify_one();
                                     }
                                     WatchmanFileSourceSubscriptionNextChange::SourceControlUpdateEnter => {

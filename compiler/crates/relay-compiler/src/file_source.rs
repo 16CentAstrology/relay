@@ -190,7 +190,7 @@ impl File {
 
 #[derive(Debug)]
 pub enum FileSourceResult {
-    Watchman(WatchmanFileSourceResult),
+    Watchman(Box<WatchmanFileSourceResult>),
     External(ExternalFileSourceResult),
     WalkDir(WalkDirFileSourceResult),
 }
@@ -251,7 +251,11 @@ impl FileSourceSubscription {
             Self::Watchman(file_source_subscription) => {
                 file_source_subscription.next_change().await.map_or_else(
                     |err| Err(Error::from(err)),
-                    |next_change| Ok(FileSourceSubscriptionNextChange::Watchman(next_change)),
+                    |next_change| {
+                        Ok(FileSourceSubscriptionNextChange::Watchman(Box::new(
+                            next_change,
+                        )))
+                    },
                 )
             }
             Self::Test(test_subscription) => {
@@ -288,7 +292,7 @@ impl FileSourceSubscription {
 
 #[derive(Debug)]
 pub enum FileSourceSubscriptionNextChange {
-    Watchman(WatchmanFileSourceSubscriptionNextChange),
+    Watchman(Box<WatchmanFileSourceSubscriptionNextChange>),
     /// Test file source notification with rescanned files
     Test(WalkDirFileSourceResult),
     /// Test: source control update started (mirrors watchman hg.update enter)
