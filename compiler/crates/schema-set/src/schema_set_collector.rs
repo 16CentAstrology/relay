@@ -26,6 +26,7 @@ use schema::Schema;
 use schema::Type;
 use schema::TypeReference;
 use schema::UnionID;
+use schema_coordinates::SchemaCoordinate;
 
 use crate::OutputNonNull;
 use crate::OutputTypeReference;
@@ -198,24 +199,28 @@ impl SchemaSet {
                 .collect();
             self.types
                 .entry(from_schema.name.item.0)
-                .or_insert(SetType::Object(SetObject {
-                    definition: Some(SchemaDefinitionItem {
-                        name: from_schema.name.item.0,
-                        locations: vec![from_schema.name.location],
-                        is_client_definition: from_schema.is_extension,
-                        description: None,
-                        hack_source: None,
-                    }),
-                    fields: StringKeyMap::default(),
-                    interfaces: all_interfaces,
-                    name: from_schema.name.item,
-                    directives: copy_sdl_directives(
-                        schema,
-                        &from_schema.directives,
-                        options,
-                        from_schema.is_extension,
-                    ),
-                }));
+                .or_insert_with(|| {
+                    SetType::Object(SetObject {
+                        definition: SchemaDefinitionItem {
+                            locations: vec![from_schema.name.location],
+                            is_client_definition: from_schema.is_extension,
+                            description: None,
+                            hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Type {
+                            name: from_schema.name.item.0,
+                        }),
+                        fields: StringKeyMap::default(),
+                        interfaces: all_interfaces,
+                        name: from_schema.name.item,
+                        directives: copy_sdl_directives(
+                            schema,
+                            &from_schema.directives,
+                            options,
+                            from_schema.is_extension,
+                        ),
+                    })
+                });
             // Any schema-level directives must also be inserted
             self.touch_directive_values(schema, &from_schema.directives, options);
         }
@@ -249,24 +254,28 @@ impl SchemaSet {
 
             self.types
                 .entry(from_schema.name.item.0)
-                .or_insert(SetType::Interface(SetInterface {
-                    definition: Some(SchemaDefinitionItem {
-                        name: from_schema.name.item.0,
-                        locations: vec![from_schema.name.location],
-                        is_client_definition: from_schema.is_extension,
-                        description: None,
-                        hack_source: None,
-                    }),
-                    fields: StringKeyMap::default(),
-                    interfaces: all_interfaces,
-                    name: from_schema.name.item,
-                    directives: copy_sdl_directives(
-                        schema,
-                        &from_schema.directives,
-                        options,
-                        from_schema.is_extension,
-                    ),
-                }));
+                .or_insert_with(|| {
+                    SetType::Interface(SetInterface {
+                        definition: SchemaDefinitionItem {
+                            locations: vec![from_schema.name.location],
+                            is_client_definition: from_schema.is_extension,
+                            description: None,
+                            hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Type {
+                            name: from_schema.name.item.0,
+                        }),
+                        fields: StringKeyMap::default(),
+                        interfaces: all_interfaces,
+                        name: from_schema.name.item,
+                        directives: copy_sdl_directives(
+                            schema,
+                            &from_schema.directives,
+                            options,
+                            from_schema.is_extension,
+                        ),
+                    })
+                });
             self.touch_directive_values(schema, &from_schema.directives, options);
         }
     }
@@ -279,43 +288,47 @@ impl SchemaSet {
     ) {
         let from_schema = schema.union(*id);
         if !self.types.contains_key(&from_schema.name.item.0) {
-            self.types.entry(from_schema.name.item.0).or_insert({
-                let members = from_schema
-                    .members
-                    .iter()
-                    .map(|id| {
-                        let member = schema.object(*id);
-                        (
-                            member.name.item.0,
-                            SetMemberType {
-                                name: member.name.item.0,
-                                is_extension: member.is_extension,
-                            },
-                        )
+            self.types
+                .entry(from_schema.name.item.0)
+                .or_insert_with(|| {
+                    let members = from_schema
+                        .members
+                        .iter()
+                        .map(|id| {
+                            let member = schema.object(*id);
+                            (
+                                member.name.item.0,
+                                SetMemberType {
+                                    name: member.name.item.0,
+                                    is_extension: member.is_extension,
+                                },
+                            )
+                        })
+                        .collect();
+                    SetType::Union(SetUnion {
+                        definition: SchemaDefinitionItem {
+                            locations: vec![from_schema.name.location],
+                            is_client_definition: from_schema.is_extension,
+                            description: None,
+                            hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Type {
+                            name: from_schema.name.item.0,
+                        }),
+                        // We always include ALL members of the union.
+                        // This is the same logic as always including all implements
+                        // on an Object: the schemas are sharded, and we don't want
+                        // to miss a member that is used in another library.
+                        members,
+                        name: from_schema.name.item,
+                        directives: copy_sdl_directives(
+                            schema,
+                            &from_schema.directives,
+                            options,
+                            from_schema.is_extension,
+                        ),
                     })
-                    .collect();
-                SetType::Union(SetUnion {
-                    definition: Some(SchemaDefinitionItem {
-                        name: from_schema.name.item.0,
-                        locations: vec![from_schema.name.location],
-                        is_client_definition: from_schema.is_extension,
-                        description: None,
-                        hack_source: None,
-                    }),
-                    // We always include ALL members of the union.
-                    // This is the same logic as always including all implements
-                    // on an Object: the schemas are sharded, and we don't want
-                    // to miss a member that is used in another library.
-                    members,
-                    name: from_schema.name.item,
-                    directives: copy_sdl_directives(
-                        schema,
-                        &from_schema.directives,
-                        options,
-                        from_schema.is_extension,
-                    ),
-                })
-            });
+                });
             self.touch_directive_values(schema, &from_schema.directives, options);
         }
     }
@@ -329,17 +342,16 @@ impl SchemaSet {
         let schema_input = schema.input_object(*id);
         self.touch_directive_values(schema, &schema_input.directives, options);
         let name = schema_input.name.item.0;
-        self.types
-            .entry(name)
-            .or_insert(SetType::InputObject(SetInputObject {
-                definition: Some(SchemaDefinitionItem {
-                    name: schema_input.name.item.0,
+        self.types.entry(name).or_insert_with(|| {
+            SetType::InputObject(SetInputObject {
+                definition: SchemaDefinitionItem {
                     locations: vec![schema_input.name.location],
                     // WTF schema does not allow input objects as extensions yet?
                     is_client_definition: false,
                     description: None,
                     hack_source: None,
-                }),
+                },
+                coordinate: Some(SchemaCoordinate::Type { name }),
                 fields: StringKeyIndexMap::default(),
                 name: schema_input.name.item,
                 directives: copy_sdl_directives(
@@ -349,7 +361,8 @@ impl SchemaSet {
                     false, /* SDLSchema InputObject does not support extensions yet */
                 ),
                 fully_recursively_visited: false,
-            }));
+            })
+        });
         if let SetType::InputObject(input_object) = self.types.get_mut(&name).unwrap() {
             input_object
         } else {
@@ -386,29 +399,35 @@ impl SchemaSet {
                     let schema_object = schema.object(id);
                     let object_name = schema_object.name.item.0;
                     if let Some(SetType::Object(used_object)) = self.types.get_mut(&object_name) {
-                        used_object.fields.entry(field_name).or_insert(SetField {
-                            definition: Some(SchemaDefinitionItem {
-                                name: schema_field.name.item,
-                                locations: vec![schema_field.name.location],
-                                is_client_definition: schema_field.is_extension,
-                                description: None,
-                                hack_source: None,
-                            }),
-                            arguments: StringKeyIndexMap::default(),
-                            type_: stringkey_output_type_ref_from_schema_type(
-                                schema,
-                                &schema_field.type_,
-                                &schema_field.directives,
-                                options,
-                            ),
-                            name: FieldName(field_name),
-                            directives: copy_sdl_directives(
-                                schema,
-                                &schema_field.directives,
-                                options,
-                                schema_field.is_extension,
-                            ),
-                        });
+                        used_object
+                            .fields
+                            .entry(field_name)
+                            .or_insert_with(|| SetField {
+                                definition: SchemaDefinitionItem {
+                                    locations: vec![schema_field.name.location],
+                                    is_client_definition: schema_field.is_extension,
+                                    description: None,
+                                    hack_source: None,
+                                },
+                                coordinate: Some(SchemaCoordinate::Member {
+                                    parent_name: object_name,
+                                    member_name: field_name,
+                                }),
+                                arguments: StringKeyIndexMap::default(),
+                                type_: stringkey_output_type_ref_from_schema_type(
+                                    schema,
+                                    &schema_field.type_,
+                                    &schema_field.directives,
+                                    options,
+                                ),
+                                name: FieldName(field_name),
+                                directives: copy_sdl_directives(
+                                    schema,
+                                    &schema_field.directives,
+                                    options,
+                                    schema_field.is_extension,
+                                ),
+                            });
                     }
                 }
                 Type::Interface(id) => {
@@ -417,29 +436,35 @@ impl SchemaSet {
                     if let Some(SetType::Interface(used_interface)) =
                         self.types.get_mut(&interface_name)
                     {
-                        used_interface.fields.entry(field_name).or_insert(SetField {
-                            definition: Some(SchemaDefinitionItem {
-                                name: schema_field.name.item,
-                                locations: vec![schema_field.name.location],
-                                is_client_definition: schema_field.is_extension,
-                                description: None,
-                                hack_source: None,
-                            }),
-                            arguments: StringKeyIndexMap::default(),
-                            type_: stringkey_output_type_ref_from_schema_type(
-                                schema,
-                                &schema_field.type_,
-                                &schema_field.directives,
-                                options,
-                            ),
-                            name: FieldName(field_name),
-                            directives: copy_sdl_directives(
-                                schema,
-                                &schema_field.directives,
-                                options,
-                                schema_field.is_extension,
-                            ),
-                        });
+                        used_interface
+                            .fields
+                            .entry(field_name)
+                            .or_insert_with(|| SetField {
+                                definition: SchemaDefinitionItem {
+                                    locations: vec![schema_field.name.location],
+                                    is_client_definition: schema_field.is_extension,
+                                    description: None,
+                                    hack_source: None,
+                                },
+                                coordinate: Some(SchemaCoordinate::Member {
+                                    parent_name: interface_name,
+                                    member_name: field_name,
+                                }),
+                                arguments: StringKeyIndexMap::default(),
+                                type_: stringkey_output_type_ref_from_schema_type(
+                                    schema,
+                                    &schema_field.type_,
+                                    &schema_field.directives,
+                                    options,
+                                ),
+                                name: FieldName(field_name),
+                                directives: copy_sdl_directives(
+                                    schema,
+                                    &schema_field.directives,
+                                    options,
+                                    schema_field.is_extension,
+                                ),
+                            });
                     }
                 }
                 _ => panic!("Unexpected parent type for field {:?}.", schema_field),
@@ -484,13 +509,15 @@ impl SchemaSet {
             .map(|schema_directive| {
                 self.directives
                     .entry(directive_name)
-                    .or_insert(SetDirective {
-                        definition: Some(SchemaDefinitionItem {
-                            name: schema_directive.name.item.0,
+                    .or_insert_with(|| SetDirective {
+                        definition: SchemaDefinitionItem {
                             locations: vec![schema_directive.name.location],
                             is_client_definition: schema_directive.is_extension,
                             description: None,
                             hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Directive {
+                            name: directive_name,
                         }),
                         arguments: StringKeyIndexMap::default(),
                         locations: schema_directive.locations.clone(),
@@ -552,13 +579,17 @@ impl SchemaSet {
                     used_field
                         .arguments
                         .entry(argument_name)
-                        .or_insert(SetArgument {
-                            definition: Some(SchemaDefinitionItem {
-                                name: schema_arg.name.item.0,
+                        .or_insert_with(|| SetArgument {
+                            definition: SchemaDefinitionItem {
                                 locations: vec![schema_arg.name.location],
                                 is_client_definition: schema_field.is_extension,
                                 description: None,
                                 hack_source: None,
+                            },
+                            coordinate: Some(SchemaCoordinate::Argument {
+                                parent_name: schema.get_type_name(parent_type),
+                                member_name: used_field.name.0,
+                                argument_name,
                             }),
                             name: argument_name,
                             type_: stringkey_type_ref_from_schema_type(schema, &schema_arg.type_),
@@ -590,24 +621,33 @@ impl SchemaSet {
             if let Some(SetType::InputObject(used_input)) =
                 self.types.get_mut(&schema_input.name.item.0)
             {
-                used_input.fields.entry(field_name).or_insert(SetArgument {
-                    definition: Some(SchemaDefinitionItem {
-                        name: schema_input.name.item.0,
-                        locations: vec![schema_input.name.location],
-                        is_client_definition: false,
-                        description: None,
-                        hack_source: None,
-                    }),
-                    name: field_name,
-                    type_: stringkey_type_ref_from_schema_type(schema, &schema_input_field.type_),
-                    default_value: schema_input_field.default_value.clone(),
-                    directives: copy_sdl_directives(
-                        schema,
-                        &schema_input_field.directives,
-                        options,
-                        false, /* SDLSchema InputObject does not support extensions yet */
-                    ),
-                });
+                used_input
+                    .fields
+                    .entry(field_name)
+                    .or_insert_with(|| SetArgument {
+                        definition: SchemaDefinitionItem {
+                            locations: vec![schema_input.name.location],
+                            is_client_definition: false,
+                            description: None,
+                            hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Member {
+                            parent_name: schema_input.name.item.0,
+                            member_name: field_name,
+                        }),
+                        name: field_name,
+                        type_: stringkey_type_ref_from_schema_type(
+                            schema,
+                            &schema_input_field.type_,
+                        ),
+                        default_value: schema_input_field.default_value.clone(),
+                        directives: copy_sdl_directives(
+                            schema,
+                            &schema_input_field.directives,
+                            options,
+                            false, /* SDLSchema InputObject does not support extensions yet */
+                        ),
+                    });
             }
         }
     }
@@ -630,13 +670,16 @@ impl SchemaSet {
                 used_directive
                     .arguments
                     .entry(argument_name)
-                    .or_insert(SetArgument {
-                        definition: Some(SchemaDefinitionItem {
-                            name: schema_arg.name.item.0,
+                    .or_insert_with(|| SetArgument {
+                        definition: SchemaDefinitionItem {
                             locations: vec![schema_arg.name.location],
                             is_client_definition: schema_directive.is_extension,
                             description: None,
                             hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::DirectiveArgument {
+                            directive_name: schema_directive.name.item.0,
+                            argument_name,
                         }),
                         name: argument_name,
                         type_: stringkey_type_ref_from_schema_type(schema, &schema_arg.type_),
@@ -663,22 +706,26 @@ impl SchemaSet {
 
         self.types
             .entry(from_schema.name.item.0)
-            .or_insert(SetType::Scalar(SetScalar {
-                definition: Some(SchemaDefinitionItem {
-                    name: from_schema.name.item.0,
-                    locations: vec![from_schema.name.location],
-                    is_client_definition: from_schema.is_extension,
-                    description: None,
-                    hack_source: None,
-                }),
-                name: from_schema.name.item,
-                directives: copy_sdl_directives(
-                    schema,
-                    &from_schema.directives,
-                    options,
-                    from_schema.is_extension,
-                ),
-            }));
+            .or_insert_with(|| {
+                SetType::Scalar(SetScalar {
+                    definition: SchemaDefinitionItem {
+                        locations: vec![from_schema.name.location],
+                        is_client_definition: from_schema.is_extension,
+                        description: None,
+                        hack_source: None,
+                    },
+                    coordinate: Some(SchemaCoordinate::Type {
+                        name: from_schema.name.item.0,
+                    }),
+                    name: from_schema.name.item,
+                    directives: copy_sdl_directives(
+                        schema,
+                        &from_schema.directives,
+                        options,
+                        from_schema.is_extension,
+                    ),
+                })
+            });
     }
 
     pub fn touch_enum(
@@ -692,23 +739,27 @@ impl SchemaSet {
 
         self.types
             .entry(from_schema.name.item.0)
-            .or_insert(SetType::Enum(SetEnum {
-                definition: Some(SchemaDefinitionItem {
-                    name: from_schema.name.item.0,
-                    locations: vec![from_schema.name.location],
-                    is_client_definition: from_schema.is_extension,
-                    description: None,
-                    hack_source: None,
-                }),
-                values: BTreeMap::default(),
-                name: from_schema.name.item,
-                directives: copy_sdl_directives(
-                    schema,
-                    &from_schema.directives,
-                    options,
-                    from_schema.is_extension,
-                ),
-            }));
+            .or_insert_with(|| {
+                SetType::Enum(SetEnum {
+                    definition: SchemaDefinitionItem {
+                        locations: vec![from_schema.name.location],
+                        is_client_definition: from_schema.is_extension,
+                        description: None,
+                        hack_source: None,
+                    },
+                    coordinate: Some(SchemaCoordinate::Type {
+                        name: from_schema.name.item.0,
+                    }),
+                    values: BTreeMap::default(),
+                    name: from_schema.name.item,
+                    directives: copy_sdl_directives(
+                        schema,
+                        &from_schema.directives,
+                        options,
+                        from_schema.is_extension,
+                    ),
+                })
+            });
     }
 
     pub fn touch_enum_value(
@@ -725,12 +776,15 @@ impl SchemaSet {
                 used_enum.values.entry(enum_value).or_insert_with(|| {
                     // Don't copy description - used schemas should be minimal
                     SetEnumValue {
-                        definition: Some(SchemaDefinitionItem {
-                            name: schema_value.value,
+                        definition: SchemaDefinitionItem {
                             locations: Vec::new(),
                             is_client_definition: schema_enum.is_extension,
                             description: None,
                             hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Member {
+                            parent_name: schema_enum.name.item.0,
+                            member_name: enum_value,
                         }),
                         value: schema_value.value,
                         directives: schema_value
@@ -754,12 +808,15 @@ impl SchemaSet {
                 used_enum.values.entry(value.value).or_insert_with(|| {
                     // Don't copy description - used schemas should be minimal
                     SetEnumValue {
-                        definition: Some(SchemaDefinitionItem {
-                            name: value.value,
+                        definition: SchemaDefinitionItem {
                             locations: Vec::new(),
                             is_client_definition: schema_enum.is_extension,
                             description: None,
                             hack_source: None,
+                        },
+                        coordinate: Some(SchemaCoordinate::Member {
+                            parent_name: schema_enum.name.item.0,
+                            member_name: value.value,
                         }),
                         value: value.value,
                         directives: value

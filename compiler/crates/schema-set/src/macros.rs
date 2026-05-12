@@ -38,16 +38,23 @@ macro_rules! impl_string_key_named_raw {
 macro_rules! impl_has_definition_item {
     ($named:ident) => {
         impl HasDefinitionItem for $named {
-            fn definition_item(&self) -> Option<&SchemaDefinitionItem> {
-                self.definition.as_ref()
+            fn definition_item(&self) -> &SchemaDefinitionItem {
+                &self.definition
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_has_coordinate {
+    ($named:ident) => {
+        impl HasCoordinate for $named {
+            fn coordinate(&self) -> Option<&SchemaCoordinate> {
+                self.coordinate.as_ref()
             }
 
-            fn is_client_definition(&self) -> bool {
-                self.definition.is_none() || self.definition.as_ref().unwrap().is_client_definition
-            }
-
-            fn remove_definition_item(&mut self) {
-                self.definition = None
+            fn exclude_coordinate(&mut self) {
+                self.coordinate = None
             }
         }
     };
@@ -123,7 +130,7 @@ macro_rules! impl_has_description {
     ($named:ident) => {
         impl HasDescription for $named {
             fn description(&self) -> Option<StringKey> {
-                self.definition.as_ref().and_then(|d| d.description)
+                self.definition.description
             }
         }
     };

@@ -17,6 +17,7 @@ use common::ScalarName;
 use intern::string_key::Intern;
 use intern::string_key::StringKeySet;
 use lazy_static::lazy_static;
+use schema_coordinates::SchemaCoordinate;
 
 use crate::schema_set::SchemaDefinitionItem;
 use crate::schema_set::SchemaSet;
@@ -39,7 +40,8 @@ lazy_static! {
                 SetType::Scalar(SetScalar {
                     name: ScalarName(key),
                     directives: vec![],
-                    definition: Some(SchemaDefinitionItem::default(key)),
+                    definition: SchemaDefinitionItem::default(),
+                    coordinate: Some(SchemaCoordinate::Type { name: key }),
                 }),
             );
         }

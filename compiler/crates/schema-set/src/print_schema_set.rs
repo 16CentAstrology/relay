@@ -822,7 +822,7 @@ mod tests {
     #[test]
     fn test_print_set_directive_value_no_args() {
         let directive_value = SetDirectiveValue {
-            definition: None,
+            definition: Default::default(),
             name: common::DirectiveName("deprecated".parse::<StringKey>().unwrap()),
             arguments: vec![],
         };
@@ -836,10 +836,10 @@ mod tests {
         use graphql_syntax::Token;
         use graphql_syntax::TokenKind;
         let directive_value = SetDirectiveValue {
-            definition: None,
+            definition: Default::default(),
             name: common::DirectiveName("deprecated".parse::<StringKey>().unwrap()),
             arguments: vec![SetArgumentValue {
-                definition: None,
+                definition: Default::default(),
                 name: common::ArgumentName("reason".parse::<StringKey>().unwrap()),
                 value: graphql_syntax::ConstantValue::String(StringNode {
                     token: Token {

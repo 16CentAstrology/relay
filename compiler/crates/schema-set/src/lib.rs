@@ -25,7 +25,9 @@ mod set_type_reference;
 use common::ArgumentName;
 use common::DirectiveName;
 use intern::string_key::Intern;
+use intern::string_key::StringKey;
 use lazy_static::lazy_static;
+use schema_coordinates::SchemaCoordinate;
 
 pub use crate::build_schema_document::ToSDLDefinition;
 pub use crate::build_schema_document::ToTypeSystemDefinition;
@@ -42,6 +44,8 @@ pub use crate::ir_collector::UsedSchemaIRCollector;
 pub use crate::partition_base_extensions::partition_schema_set_base_and_extensions;
 pub use crate::schema_set::CanHaveDirectives;
 pub use crate::schema_set::FieldName;
+pub use crate::schema_set::HasCoordinate;
+pub use crate::schema_set::HasDefinitionItem;
 pub use crate::schema_set::HasDescription;
 pub use crate::schema_set::SchemaDefinitionItem;
 pub use crate::schema_set::SchemaSet;
@@ -76,4 +80,32 @@ lazy_static! {
 
 fn is_graphql_builtin_directive(name: DirectiveName) -> bool {
     name == *DEPRECATED || name == *SPECIFIED_BY || name == *ONE_OF
+}
+
+fn build_child_coordinate(
+    parent_coordinate: Option<&SchemaCoordinate>,
+    child_name: StringKey,
+) -> Option<SchemaCoordinate> {
+    parent_coordinate.and_then(|parent| match parent {
+        SchemaCoordinate::Type { name } => Some(SchemaCoordinate::Member {
+            parent_name: *name,
+            member_name: child_name,
+        }),
+        SchemaCoordinate::Directive { name } => Some(SchemaCoordinate::DirectiveArgument {
+            directive_name: *name,
+            argument_name: child_name,
+        }),
+        SchemaCoordinate::Member {
+            parent_name,
+            member_name,
+        } => Some(SchemaCoordinate::Argument {
+            parent_name: *parent_name,
+            member_name: *member_name,
+            argument_name: child_name,
+        }),
+
+        // Arguments have no child coordinates
+        SchemaCoordinate::DirectiveArgument { .. } => None,
+        SchemaCoordinate::Argument { .. } => None,
+    })
 }

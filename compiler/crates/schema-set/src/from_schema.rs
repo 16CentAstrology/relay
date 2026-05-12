@@ -22,6 +22,7 @@ use schema::Schema;
 use schema::Type;
 use schema::TypeReference;
 use schema::UnionID;
+use schema_coordinates::SchemaCoordinate;
 
 use crate::OutputNonNull;
 use crate::OutputTypeReference;
@@ -29,6 +30,7 @@ use crate::SEMANTIC_NON_NULL;
 use crate::SEMANTIC_NON_NULL_LEVELS_ARG;
 use crate::SetDirective;
 use crate::SetDirectiveValue;
+use crate::build_child_coordinate;
 use crate::schema_set::CanHaveDirectives;
 use crate::schema_set::FieldName;
 use crate::schema_set::HasArguments;
@@ -126,6 +128,7 @@ pub trait SchemaInsertArgument {
     fn argument_or_inserted(
         &mut self,
         argument: &schema::Argument,
+        parent_coordinate: Option<&SchemaCoordinate>,
         schema: &SDLSchema,
     ) -> &mut SetArgument;
 
@@ -136,19 +139,20 @@ impl<T: HasArguments> SchemaInsertArgument for T {
     fn argument_or_inserted(
         &mut self,
         argument: &schema::Argument,
+        parent_coordinate: Option<&SchemaCoordinate>,
         schema: &SDLSchema,
     ) -> &mut SetArgument {
         let argument_name = argument.name.item.0;
         self.arguments_mut()
             .entry(argument_name)
             .or_insert_with(|| SetArgument {
-                definition: Some(SchemaDefinitionItem {
-                    name: argument.name.item.0,
+                definition: SchemaDefinitionItem {
                     locations: vec![argument.name.location],
                     is_client_definition: false,
                     description: None,
                     hack_source: None,
-                }),
+                },
+                coordinate: build_child_coordinate(parent_coordinate, argument_name),
                 name: argument_name,
                 type_: argument.type_.clone().map(|t| schema.get_type_name(t)),
                 default_value: argument.default_value.clone(),
@@ -201,12 +205,14 @@ impl SchemaDefault<ScalarID> for SetScalar {
     fn schema_default(id: ScalarID, schema: &SDLSchema) -> SetScalar {
         let from_schema = schema.scalar(id);
         SetScalar {
-            definition: Some(SchemaDefinitionItem {
-                name: from_schema.name.item.0,
+            definition: SchemaDefinitionItem {
                 locations: vec![from_schema.name.location],
                 is_client_definition: from_schema.is_extension,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: Some(SchemaCoordinate::Type {
+                name: from_schema.name.item.0,
             }),
             name: from_schema.name.item,
             directives: Default::default(),
@@ -227,12 +233,14 @@ impl SchemaDefault<EnumID> for SetEnum {
     fn schema_default(id: EnumID, schema: &SDLSchema) -> SetEnum {
         let from_schema = schema.enum_(id);
         SetEnum {
-            definition: Some(SchemaDefinitionItem {
-                name: from_schema.name.item.0,
+            definition: SchemaDefinitionItem {
                 locations: vec![from_schema.name.location],
                 is_client_definition: from_schema.is_extension,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: Some(SchemaCoordinate::Type {
+                name: from_schema.name.item.0,
             }),
             name: from_schema.name.item,
             directives: Default::default(),
@@ -255,12 +263,14 @@ impl SchemaDefault<ObjectID> for SetObject {
     fn schema_default(id: ObjectID, schema: &SDLSchema) -> SetObject {
         let from_schema = schema.object(id);
         SetObject {
-            definition: Some(SchemaDefinitionItem {
-                name: from_schema.name.item.0,
+            definition: SchemaDefinitionItem {
                 locations: vec![from_schema.name.location],
                 is_client_definition: from_schema.is_extension,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: Some(SchemaCoordinate::Type {
+                name: from_schema.name.item.0,
             }),
             name: from_schema.name.item,
             interfaces: Default::default(),
@@ -285,12 +295,14 @@ impl SchemaDefault<InterfaceID> for SetInterface {
     fn schema_default(id: InterfaceID, schema: &SDLSchema) -> SetInterface {
         let from_schema = schema.interface(id);
         SetInterface {
-            definition: Some(SchemaDefinitionItem {
-                name: from_schema.name.item.0,
+            definition: SchemaDefinitionItem {
                 locations: vec![from_schema.name.location],
                 is_client_definition: from_schema.is_extension,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: Some(SchemaCoordinate::Type {
+                name: from_schema.name.item.0,
             }),
             name: from_schema.name.item,
             interfaces: Default::default(),
@@ -315,12 +327,14 @@ impl SchemaDefault<UnionID> for SetUnion {
     fn schema_default(id: UnionID, schema: &SDLSchema) -> SetUnion {
         let from_schema = schema.union(id);
         SetUnion {
-            definition: Some(SchemaDefinitionItem {
-                name: from_schema.name.item.0,
+            definition: SchemaDefinitionItem {
                 locations: vec![from_schema.name.location],
                 is_client_definition: from_schema.is_extension,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: Some(SchemaCoordinate::Type {
+                name: from_schema.name.item.0,
             }),
             name: from_schema.name.item,
             directives: Default::default(),
@@ -343,13 +357,15 @@ impl SchemaDefault<InputObjectID> for SetInputObject {
     fn schema_default(id: InputObjectID, schema: &SDLSchema) -> SetInputObject {
         let from_schema = schema.input_object(id);
         SetInputObject {
-            definition: Some(SchemaDefinitionItem {
-                name: from_schema.name.item.0,
+            definition: SchemaDefinitionItem {
                 locations: vec![from_schema.name.location],
-                // Schema does not allow input objects as extensions yet
+                // schema::InputObject does not have extension (which is really client definitions) yet
                 is_client_definition: false,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: Some(SchemaCoordinate::Type {
+                name: from_schema.name.item.0,
             }),
             name: from_schema.name.item,
             directives: Default::default(),
@@ -373,14 +389,20 @@ impl SetEmptyClone for SetInputObject {
 impl SchemaDefault<FieldID> for SetField {
     fn schema_default(id: FieldID, schema: &SDLSchema) -> Self {
         let schema_field = schema.field(id);
+        let parent_name = schema_field
+            .parent_type
+            .map(|parent| schema.get_type_name(parent));
         let field_name = schema_field.name.item;
         Self {
-            definition: Some(SchemaDefinitionItem {
-                name: schema_field.name.item,
+            definition: SchemaDefinitionItem {
                 locations: vec![schema_field.name.location],
                 is_client_definition: schema_field.is_extension,
                 description: None,
                 hack_source: None,
+            },
+            coordinate: parent_name.map(|parent_name| SchemaCoordinate::Member {
+                parent_name,
+                member_name: schema_field.name.item,
             }),
             name: FieldName(field_name),
             arguments: StringKeyIndexMap::default(),

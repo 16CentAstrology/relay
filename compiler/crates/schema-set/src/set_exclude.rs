@@ -22,6 +22,7 @@ use intern::string_key::StringKeyMap;
 use intern::string_key::StringKeySet;
 use lazy_static::lazy_static;
 use schema::TypeReference;
+use schema_coordinates::SchemaCoordinate;
 
 use crate::OutputNonNull;
 use crate::OutputTypeReference;
@@ -40,7 +41,6 @@ use crate::SetObject;
 use crate::SetScalar;
 use crate::SetType;
 use crate::SetUnion;
-use crate::schema_set::HasDefinitionItem;
 use crate::schema_set::SetRootSchema;
 
 lazy_static! {
@@ -143,6 +143,7 @@ impl SetExclude for SetRootSchema {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         Self {
             definition: self.definition.clone(),
+            is_extend: self.is_extend || !other.is_extend,
             directives: exclude_directives(&self.directives, &other.directives, options),
             query_type: exclude_operation_type(self.query_type, other.query_type),
             mutation_type: exclude_operation_type(self.mutation_type, other.mutation_type),
@@ -157,16 +158,15 @@ impl SetExclude for SetRootSchema {
 impl CanBeEmpty for SetDirective {
     fn is_set_empty(&self) -> bool {
         // definition will NOT be none if repeatable has changed!
-        self.definition.is_none() && self.arguments.is_empty() && self.locations.is_empty()
+        self.coordinate.is_none() && self.arguments.is_empty() && self.locations.is_empty()
     }
 }
 
 impl SetExclude for SetDirective {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         // Keep Definition around if we DROPPED repeatable changed to make clear this is not an empty value, even if there are no arguments!
-        let definition = exclude_definition_if(
-            self.name.0,
-            self.definition.as_ref(),
+        let coordinate = exclude_definition_if(
+            self.coordinate.as_ref(),
             !self.repeatable || other.repeatable,
         );
 
@@ -183,7 +183,8 @@ impl SetExclude for SetDirective {
             .collect();
 
         Self {
-            definition,
+            definition: self.definition.clone(),
+            coordinate,
             locations,
             arguments: exclude_argument_definitions(&self.arguments, &other.arguments, options),
             name: self.name,
@@ -237,17 +238,17 @@ impl SetExclude for SetType {
 
 impl CanBeEmpty for SetScalar {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none() && self.directives.is_empty()
+        self.coordinate.is_none() && self.directives.is_empty()
     }
 }
 
 impl SetExclude for SetScalar {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         Self {
-            definition: exclude_definition_if(
-                self.name.0,
-                self.definition.as_ref(),
-                !other.is_client_definition() || self.is_client_definition(),
+            definition: self.definition.clone(),
+            coordinate: exclude_definition_if(
+                self.coordinate.as_ref(),
+                other.coordinate.is_some() || self.coordinate.is_none(),
             ),
             directives: exclude_directives(&self.directives, &other.directives, options),
             name: self.name,
@@ -257,7 +258,7 @@ impl SetExclude for SetScalar {
 
 impl CanBeEmpty for SetEnum {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none() && self.directives.is_empty() && self.values.is_empty()
+        self.coordinate.is_none() && self.directives.is_empty() && self.values.is_empty()
     }
 }
 
@@ -295,10 +296,10 @@ impl SetExclude for SetEnum {
         }
 
         Self {
-            definition: exclude_definition_if(
-                self.name.0,
-                self.definition.as_ref(),
-                !other.is_client_definition() || self.is_client_definition(),
+            definition: self.definition.clone(),
+            coordinate: exclude_definition_if(
+                self.coordinate.as_ref(),
+                other.coordinate.is_some() || self.coordinate.is_none(),
             ),
             directives: exclude_directives(&self.directives, &other.directives, options),
             values,
@@ -309,7 +310,7 @@ impl SetExclude for SetEnum {
 
 impl CanBeEmpty for SetObject {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none()
+        self.coordinate.is_none()
             && self.interfaces.is_empty()
             && self.directives.is_empty()
             && self.fields.is_set_empty()
@@ -319,10 +320,10 @@ impl CanBeEmpty for SetObject {
 impl SetExclude for SetObject {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         Self {
-            definition: exclude_definition_if(
-                self.name.0,
-                self.definition.as_ref(),
-                !other.is_client_definition() || self.is_client_definition(),
+            definition: self.definition.clone(),
+            coordinate: exclude_definition_if(
+                self.coordinate.as_ref(),
+                other.coordinate.is_some() || self.coordinate.is_none(),
             ),
             interfaces: exclude_set_members(&self.interfaces, &other.interfaces),
             directives: exclude_directives(&self.directives, &other.directives, options),
@@ -334,7 +335,7 @@ impl SetExclude for SetObject {
 
 impl CanBeEmpty for SetInterface {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none()
+        self.coordinate.is_none()
             && self.interfaces.is_empty()
             && self.directives.is_empty()
             && self.fields.is_set_empty()
@@ -344,10 +345,10 @@ impl CanBeEmpty for SetInterface {
 impl SetExclude for SetInterface {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         Self {
-            definition: exclude_definition_if(
-                self.name.0,
-                self.definition.as_ref(),
-                !other.is_client_definition() || self.is_client_definition(),
+            definition: self.definition.clone(),
+            coordinate: exclude_definition_if(
+                self.coordinate.as_ref(),
+                other.coordinate.is_some() || self.coordinate.is_none(),
             ),
             interfaces: exclude_set_members(&self.interfaces, &other.interfaces),
             directives: exclude_directives(&self.directives, &other.directives, options),
@@ -359,17 +360,17 @@ impl SetExclude for SetInterface {
 
 impl CanBeEmpty for SetUnion {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none() && self.members.is_empty() && self.directives.is_empty()
+        self.coordinate.is_none() && self.members.is_empty() && self.directives.is_empty()
     }
 }
 
 impl SetExclude for SetUnion {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         Self {
-            definition: exclude_definition_if(
-                self.name.0,
-                self.definition.as_ref(),
-                !other.is_client_definition() || self.is_client_definition(),
+            definition: self.definition.clone(),
+            coordinate: exclude_definition_if(
+                self.coordinate.as_ref(),
+                other.coordinate.is_some() || self.coordinate.is_none(),
             ),
             members: exclude_set_members(&self.members, &other.members),
             directives: exclude_directives(&self.directives, &other.directives, options),
@@ -380,17 +381,17 @@ impl SetExclude for SetUnion {
 
 impl CanBeEmpty for SetInputObject {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none() && self.directives.is_empty() && self.fields.is_empty()
+        self.coordinate.is_none() && self.directives.is_empty() && self.fields.is_empty()
     }
 }
 
 impl SetExclude for SetInputObject {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
         Self {
-            definition: exclude_definition_if(
-                self.name.0,
-                self.definition.as_ref(),
-                !other.is_client_definition() || self.is_client_definition(),
+            definition: self.definition.clone(),
+            coordinate: exclude_definition_if(
+                self.coordinate.as_ref(),
+                other.coordinate.is_some() || self.coordinate.is_none(),
             ),
             directives: exclude_directives(&self.directives, &other.directives, options),
             fields: exclude_argument_definitions(&self.fields, &other.fields, options),
@@ -404,19 +405,19 @@ impl SetExclude for SetInputObject {
 
 impl CanBeEmpty for SetField {
     fn is_set_empty(&self) -> bool {
-        self.definition.is_none() && self.arguments.is_set_empty() && self.directives.is_empty()
+        self.coordinate.is_none() && self.arguments.is_set_empty() && self.directives.is_empty()
     }
 }
 
 impl SetExclude for SetField {
     fn exclude(&self, other: &Self, options: &SafeExclusionOptions) -> Self {
-        let definition = exclude_definition_if(
-            self.name.0,
-            self.definition.as_ref(),
+        let coordinate = exclude_definition_if(
+            self.coordinate.as_ref(),
             is_excluded_output_type(&self.type_, &other.type_, options),
         );
         Self {
-            definition,
+            definition: self.definition.clone(),
+            coordinate,
             arguments: exclude_argument_definitions(&self.arguments, &other.arguments, options),
             directives: exclude_directives(&self.directives, &other.directives, options),
             name: self.name,
@@ -427,9 +428,9 @@ impl SetExclude for SetField {
 
 impl CanBeEmpty for SetArgument {
     fn is_set_empty(&self) -> bool {
-        // We don't need to check things like the type or default value: if it HAS a definition, then it is NOT empty.
-        // Likewise the definition cannot exist if its definition is empty, UNLESS there are just directives extending it
-        self.definition.is_none() && self.directives.is_empty()
+        // We don't need to check things like the type or default value: if it HAS a coordinate, then it is NOT empty.
+        // Likewise the coordinate cannot exist if its definition is empty, UNLESS there are just directives extending it
+        self.coordinate.is_none() && self.directives.is_empty()
     }
 }
 
@@ -439,13 +440,13 @@ impl SetExclude for SetArgument {
 
         let is_type_excluded = is_excluded_input_type(&self.type_, &other.type_, options);
 
-        let definition =
-            exclude_definition_if(self.name, self.definition.as_ref(), is_type_excluded);
+        let coordinate = exclude_definition_if(self.coordinate.as_ref(), is_type_excluded);
 
         Self {
-            definition,
+            definition: self.definition.clone(),
+            coordinate,
             directives,
-            // type is either a subset, in which case definition is empty, OR it is NOT a subset and definition is set.
+            // type is either a subset, in which case coordinate is empty, OR it is NOT a subset and coordinate is set.
             type_: self.type_.clone(),
             name: self.name,
             // Default value can change in either direction, it's never a determinant of the argument being a subset.
@@ -570,24 +571,13 @@ fn exclude_operation_type(this: Option<StringKey>, other: Option<StringKey>) -> 
 }
 
 fn exclude_definition_if(
-    name: StringKey,
-    original_definition: Option<&SchemaDefinitionItem>,
+    original_coordinate: Option<&SchemaCoordinate>,
     definition_is_excluded: bool,
-) -> Option<SchemaDefinitionItem> {
+) -> Option<SchemaCoordinate> {
     if definition_is_excluded {
         None
     } else {
-        Some(
-            original_definition
-                .cloned()
-                .unwrap_or_else(|| SchemaDefinitionItem {
-                    name,
-                    locations: Vec::new(),
-                    is_client_definition: false,
-                    description: None,
-                    hack_source: None,
-                }),
-        )
+        original_coordinate.cloned()
     }
 }
 
@@ -764,10 +754,10 @@ fn constant_value_semantically_eq(a: &ConstantValue, b: &ConstantValue) -> bool 
 
 fn build_missing_required_directive(directive_from_other: &SetDirectiveValue) -> SetDirectiveValue {
     SetDirectiveValue {
-        definition: None,
+        definition: SchemaDefinitionItem::default(),
         name: *MISSING_REQUIRED_DIRECTIVE,
         arguments: vec![SetArgumentValue {
-            definition: None,
+            definition: SchemaDefinitionItem::default(),
             name: *MISSING_REQUIRED_DIRECTIVE_NAME,
             value: ConstantValue::String(StringNode {
                 token: Token {

@@ -19,6 +19,7 @@ use crate::SetType;
 use crate::SetUnion;
 use crate::schema_set::CanHaveDirectives;
 use crate::schema_set::HasArguments;
+use crate::schema_set::HasCoordinate;
 use crate::schema_set::HasDefinitionItem;
 use crate::schema_set::HasFields;
 use crate::schema_set::HasInterfaces;
@@ -63,13 +64,13 @@ pub fn partition_schema_set_base_and_extensions(
     Ok((base, extensions))
 }
 
-pub trait PartitionsBaseExtension: HasDefinitionItem + Sized + Clone {
+pub trait PartitionsBaseExtension: HasDefinitionItem + HasCoordinate + Sized + Clone {
     // Implement this: will only be called if the type is not a fully client type
     fn partition_base_extension(&self) -> (Self, Option<Self>);
 }
 
 fn partition_object_or_interface<
-    T: CanHaveDirectives + HasDefinitionItem + HasFields + HasInterfaces + Clone,
+    T: CanHaveDirectives + HasDefinitionItem + HasCoordinate + HasFields + HasInterfaces + Clone,
 >(
     item: &T,
 ) -> (T, Option<T>) {
@@ -96,7 +97,7 @@ fn partition_object_or_interface<
         // clearing `definition` makes `to_sdl_definition` emit it as
         // `extend X { ... }` instead of `X { ... }` (which would conflict with
         // the base half on re-import via `SDLSchema::build`).
-        ext.remove_definition_item();
+        ext.exclude_coordinate();
         Some(ext)
     };
     (base, extension)
@@ -169,7 +170,7 @@ impl PartitionsBaseExtension for SetUnion {
             Some(Self {
                 // The extension half is not a top-level definition; see comment
                 // in `partition_object_or_interface` for rationale.
-                definition: None,
+                coordinate: None,
                 members: extension_members,
                 directives: extension_directives,
                 ..self.clone()
@@ -200,7 +201,7 @@ impl PartitionsBaseExtension for SetEnum {
             Some(Self {
                 // The extension half is not a top-level definition; see comment
                 // in `partition_object_or_interface` for rationale.
-                definition: None,
+                coordinate: None,
                 values: extension_values,
                 directives: extension_directives,
                 ..self.clone()
@@ -227,7 +228,7 @@ impl PartitionsBaseExtension for SetInputObject {
             Some(Self {
                 // The extension half is not a top-level definition; see comment
                 // in `partition_object_or_interface` for rationale.
-                definition: None,
+                coordinate: None,
                 fields: extension_fields,
                 directives: extension_directives,
                 ..self.clone()
@@ -253,7 +254,7 @@ impl PartitionsBaseExtension for SetDirective {
         } else {
             Some(Self {
                 arguments: extension_args,
-                definition: None,
+                coordinate: None,
                 ..self.clone()
             })
         };
@@ -281,7 +282,7 @@ impl PartitionsBaseExtension for SetField {
             Some(Self {
                 arguments: extension_args,
                 directives: extension_directives,
-                definition: None,
+                coordinate: None,
                 ..self.clone()
             })
         };
@@ -306,7 +307,7 @@ impl PartitionsBaseExtension for SetScalar {
         } else {
             Some(Self {
                 directives: extension_directives,
-                definition: None,
+                coordinate: None,
                 ..self.clone()
             })
         };
@@ -325,7 +326,7 @@ mod tests {
     use super::*;
     use crate::ToSDLDefinition;
 
-    fn set_from_sdl(sdl: &str) -> SchemaSet {
+    fn base_set_from_sdl(sdl: &str) -> SchemaSet {
         SchemaSet::from_base_schema_documents(&[parse_schema_document(
             sdl,
             SourceLocationKey::generated(),
@@ -334,9 +335,17 @@ mod tests {
         .unwrap()
     }
 
+    fn extension_set_from_sdl(sdl: &str) -> SchemaSet {
+        SchemaSet::from_schema_documents_with_extensions(
+            &[],
+            &[parse_schema_document(sdl, SourceLocationKey::generated()).unwrap()],
+        )
+        .unwrap()
+    }
+
     #[test]
     fn test_server_directive_on_base_not_in_extensions() {
-        let original_base = set_from_sdl(
+        let original_base = base_set_from_sdl(
             r#"
                 directive @serverDirective on OBJECT
 
@@ -349,7 +358,7 @@ mod tests {
                 }
             "#,
         );
-        let original_extensions = set_from_sdl(
+        let original_extensions = extension_set_from_sdl(
             r#"
                 extend type Query {
                     extensionField: ID
@@ -375,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_server_directive_on_extension_not_lost_by_partition() {
-        let original_base = set_from_sdl(
+        let original_base = base_set_from_sdl(
             r#"
                 directive @serverDirective on OBJECT
 
@@ -388,7 +397,7 @@ mod tests {
                 }
             "#,
         );
-        let original_extensions = set_from_sdl(
+        let original_extensions = extension_set_from_sdl(
             r#"
                 extend type Frog @serverDirective {
                     extensionField: ID
@@ -416,7 +425,7 @@ mod tests {
     // does NOT duplicate enum values into the extension partition.
     #[test]
     fn test_enum_extension_directive_does_not_duplicate_values() {
-        let original_base = set_from_sdl(
+        let original_base = base_set_from_sdl(
             r#"
                 directive @serverDirective on ENUM
 
@@ -425,7 +434,7 @@ mod tests {
                 }
             "#,
         );
-        let original_extensions = set_from_sdl(
+        let original_extensions = extension_set_from_sdl(
             r#"
                 extend enum ServerEnum @serverDirective
             "#,
@@ -449,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_enum_extension_values_partitioned_correctly() {
-        let original_base = set_from_sdl(
+        let original_base = base_set_from_sdl(
             r#"
                 enum Color {
                     RED
@@ -458,7 +467,7 @@ mod tests {
                 }
             "#,
         );
-        let original_extensions = set_from_sdl(
+        let original_extensions = extension_set_from_sdl(
             r#"
                 extend enum Color {
                     YELLOW
@@ -484,7 +493,7 @@ mod tests {
 
     #[test]
     fn test_input_object_extension_directive_does_not_duplicate_fields() {
-        let original_base = set_from_sdl(
+        let original_base = base_set_from_sdl(
             r#"
                 directive @serverDirective on INPUT_OBJECT
 
@@ -493,7 +502,7 @@ mod tests {
                 }
             "#,
         );
-        let original_extensions = set_from_sdl(
+        let original_extensions = extension_set_from_sdl(
             r#"
                 extend input SomeInput @serverDirective
             "#,
@@ -517,14 +526,14 @@ mod tests {
 
     #[test]
     fn test_input_object_extension_fields_partitioned_correctly() {
-        let original_base = set_from_sdl(
+        let original_base = base_set_from_sdl(
             r#"
                 input SomeInput {
                     field1: String
                 }
             "#,
         );
-        let original_extensions = set_from_sdl(
+        let original_extensions = extension_set_from_sdl(
             r#"
                 extend input SomeInput {
                     field2: Boolean
@@ -783,5 +792,87 @@ mod tests {
 
         assert_eq!(base, expected_base);
         assert_eq!(client, expected_client);
+    }
+
+    /// Test for the client-vs-base split being preserved across
+    /// an `exclude` that produces an "extension-only" type.
+    ///
+    /// Setup: `Foo` is defined in the base schema with two fields and
+    /// extended by the client schema with two more fields. We then
+    /// `exclude` a full `type Foo` that drops one server field and one
+    /// client field. This causes `Foo`'s top-level coordinate to be
+    /// cleared (the type-level definition is "subset" of the excluded
+    /// definition), while leaving one server field and one client field.
+    #[test]
+    fn test_partition_after_exclude_preserves_client_vs_base_split() {
+        let original = SchemaSet::from_schema_documents_with_extensions(
+            &[parse_schema_document(
+                r#"
+                    type Foo {
+                        server_kept: String
+                        server_excluded: ID
+                    }
+                "#,
+                SourceLocationKey::generated(),
+            )
+            .unwrap()],
+            &[parse_schema_document(
+                r#"
+                    extend type Foo {
+                        client_kept: Int
+                        client_excluded: Boolean
+                    }
+                "#,
+                SourceLocationKey::generated(),
+            )
+            .unwrap()],
+        )
+        .unwrap();
+
+        let to_exclude = base_set_from_sdl(
+            r#"
+                type Foo {
+                    server_excluded: ID
+                    client_excluded: Boolean
+                }
+            "#,
+        );
+        let excluded = original.exclude_set(&to_exclude, &Default::default(), &Default::default());
+
+        let (base, extensions) = partition_schema_set_base_and_extensions(&excluded).unwrap();
+
+        // Both halves render as `extend type Foo` because `exclude`
+        // already cleared the type-level coordinate. The point of the
+        // test is *which* field landed on *which* side.
+        assert_eq!(
+            format!("{}", base.to_sdl_definition()),
+            format!(
+                "{}",
+                base_set_from_sdl(
+                    r#"
+                        extend type Foo {
+                            server_kept: String
+                        }
+                    "#,
+                )
+                .to_sdl_definition()
+            ),
+            "server-defined field should remain on the base half",
+        );
+        assert_eq!(
+            format!("{}", extensions.to_sdl_definition()),
+            format!(
+                "{}",
+                extension_set_from_sdl(
+                    r#"
+                        extend type Foo {
+                            client_kept: Int
+                        }
+                    "#,
+                )
+                .to_sdl_definition()
+            ),
+            "client-defined field should remain on the extensions half",
+        );
     }
 }

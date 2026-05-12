@@ -40,6 +40,7 @@ use schema::EnumValue;
 use schema::SDLSchema;
 use schema::Schema;
 use schema::TypeReference;
+use schema_coordinates::SchemaCoordinate;
 
 use crate::OutputTypeReference;
 use crate::SchemaDefault;
@@ -47,6 +48,7 @@ use crate::SchemaInsertField;
 use crate::UsedSchemaCollectionOptions;
 use crate::impl_can_have_directives;
 use crate::impl_has_arguments;
+use crate::impl_has_coordinate;
 use crate::impl_has_definition_item;
 use crate::impl_has_description;
 use crate::impl_has_fields;
@@ -225,11 +227,11 @@ impl SchemaSet {
     pub fn merge_sdl_document(
         &mut self,
         document: &SchemaDocument,
-        is_ext_document: bool,
+        is_client_document: bool,
     ) -> DiagnosticsResult<()> {
         let source = document.location.source_location();
         for definition in &document.definitions {
-            self.merge_type_system_definition(definition, source, is_ext_document)?;
+            self.merge_type_system_definition(definition, source, is_client_document)?;
         }
         Ok(())
     }
@@ -238,12 +240,12 @@ impl SchemaSet {
         &mut self,
         definition: &TypeSystemDefinition,
         source: SourceLocationKey,
-        is_ext_document: bool,
+        is_client_document: bool,
     ) -> DiagnosticsResult<()> {
         match definition {
             TypeSystemDefinition::SchemaDefinition(schema_def) => self
                 .root_schema
-                .merge(schema_def.to_set_definition(source, is_ext_document, false)),
+                .merge(schema_def.to_set_definition(source, is_client_document, false)),
             TypeSystemDefinition::SchemaExtension(schema_ext) => self.root_schema.merge(
                 schema_ext
                     .clone()
@@ -251,43 +253,43 @@ impl SchemaSet {
                     .to_set_definition(source, true, true),
             ),
             TypeSystemDefinition::EnumTypeDefinition(def) => {
-                merge_def_into(&mut self.types, def, source, is_ext_document)
+                merge_def_into(&mut self.types, def, source, is_client_document)
             }
             TypeSystemDefinition::EnumTypeExtension(ext) => {
-                merge_ext_into(&mut self.types, ext, source)
+                merge_ext_into(&mut self.types, ext, source, is_client_document)
             }
             TypeSystemDefinition::InterfaceTypeDefinition(def) => {
-                merge_def_into(&mut self.types, def, source, is_ext_document)
+                merge_def_into(&mut self.types, def, source, is_client_document)
             }
             TypeSystemDefinition::InterfaceTypeExtension(ext) => {
-                merge_ext_into(&mut self.types, ext, source)
+                merge_ext_into(&mut self.types, ext, source, is_client_document)
             }
             TypeSystemDefinition::ObjectTypeDefinition(def) => {
-                merge_def_into(&mut self.types, def, source, is_ext_document)
+                merge_def_into(&mut self.types, def, source, is_client_document)
             }
             TypeSystemDefinition::ObjectTypeExtension(ext) => {
-                merge_ext_into(&mut self.types, ext, source)
+                merge_ext_into(&mut self.types, ext, source, is_client_document)
             }
             TypeSystemDefinition::UnionTypeDefinition(def) => {
-                merge_def_into(&mut self.types, def, source, is_ext_document)
+                merge_def_into(&mut self.types, def, source, is_client_document)
             }
             TypeSystemDefinition::UnionTypeExtension(ext) => {
-                merge_ext_into(&mut self.types, ext, source)
+                merge_ext_into(&mut self.types, ext, source, is_client_document)
             }
             TypeSystemDefinition::InputObjectTypeDefinition(def) => {
-                merge_def_into(&mut self.types, def, source, is_ext_document)
+                merge_def_into(&mut self.types, def, source, is_client_document)
             }
             TypeSystemDefinition::InputObjectTypeExtension(ext) => {
-                merge_ext_into(&mut self.types, ext, source)
+                merge_ext_into(&mut self.types, ext, source, is_client_document)
             }
             TypeSystemDefinition::ScalarTypeDefinition(def) => {
-                merge_def_into(&mut self.types, def, source, is_ext_document)
+                merge_def_into(&mut self.types, def, source, is_client_document)
             }
             TypeSystemDefinition::ScalarTypeExtension(ext) => {
-                merge_ext_into(&mut self.types, ext, source)
+                merge_ext_into(&mut self.types, ext, source, is_client_document)
             }
             TypeSystemDefinition::DirectiveDefinition(def) => {
-                merge_def_into(&mut self.directives, def, source, is_ext_document)
+                merge_def_into(&mut self.directives, def, source, is_client_document)
             }
         }
     }
@@ -464,18 +466,23 @@ impl SchemaSet {
     }
 }
 
-/// Describes what *state* a specific definition is in, plus location and metadata.
+/// Describes the location and metadata for an item in the SchemaSet.
+///
+/// Items with coordinates, like SetType or SetField,
+/// have a `coordinate: Option<SchemaCoordinate>` to describe the *state*
+/// of the item.
 ///
 /// When None, it means that the parent Set<Object|Interface|...> is
 /// purely extending some otherwise-not-present base type.
 ///
 /// For top-level types, the None case can be represented in SDL as
 /// `extend type Foo @extensionDirective implements ExtensionImplements { extensionField: String }`
-/// In the above case, if that is ALL the SchemaSet holds, then the SetObject will *not* have a SchemaDefinitionItem,
-/// but the SetDirectiveValue, SetMemberType, and SetField all will have a SchemaDefinitionItem.
+/// In the above case, if that is ALL the SchemaSet holds, then the SetObject will *not* have a `coordinate`,
+/// but the SetField all will have a `coordinate`
+/// (SetDirectiveValue and SetMemberType do not have coordinates, and cannot be partially excluded).
 ///
 /// This means that SchemaSet(`type A { fieldA: String }`).exclude(SchemaSet(`type A`))
-/// ends up as a SchemaSet represented as `extend type A { fieldA: String }`: the underlying definition is gone,
+/// ends up as a SchemaSet represented as `extend type A { fieldA: String }`: the underlying coordinate is gone,
 /// but we still need to represent the existence of `A.fieldA`.
 ///
 /// `is_client_definition` represents something different: whether this specific definition was *only* present
@@ -483,26 +490,14 @@ impl SchemaSet {
 /// would be represented with is_client_definition: true on the field.
 /// Likewise, client-only types will be is_client_definition, despite being defined in SDL using `type ClientOnly { ... }`.
 ///
-/// A Set item with a None SchemaDefinitionItem, and *no* child items, is considered fully excluded.
+/// A Set item with a None SchemaCoordinate, and *no* child items, is considered fully excluded.
 /// There should be no reason to extend an item if there's nothing in that extension.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SchemaDefinitionItem {
-    pub name: StringKey,
     pub locations: Vec<Location>,
     pub is_client_definition: bool,
     pub description: Option<StringKey>,
     pub hack_source: Option<StringKey>,
-}
-impl SchemaDefinitionItem {
-    pub fn default(name: StringKey) -> Self {
-        Self {
-            name,
-            locations: Vec::new(),
-            is_client_definition: false,
-            description: None,
-            hack_source: None,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -529,7 +524,7 @@ impl StringKeyNamed for SetType {
 }
 
 impl HasDefinitionItem for SetType {
-    fn definition_item(&self) -> Option<&SchemaDefinitionItem> {
+    fn definition_item(&self) -> &SchemaDefinitionItem {
         match self {
             SetType::Scalar(t) => t.definition_item(),
             SetType::Enum(t) => t.definition_item(),
@@ -539,26 +534,28 @@ impl HasDefinitionItem for SetType {
             SetType::InputObject(t) => t.definition_item(),
         }
     }
+}
 
-    fn is_client_definition(&self) -> bool {
+impl HasCoordinate for SetType {
+    fn coordinate(&self) -> Option<&SchemaCoordinate> {
         match self {
-            SetType::Scalar(t) => t.is_client_definition(),
-            SetType::Enum(t) => t.is_client_definition(),
-            SetType::Object(t) => t.is_client_definition(),
-            SetType::Interface(t) => t.is_client_definition(),
-            SetType::Union(t) => t.is_client_definition(),
-            SetType::InputObject(t) => t.is_client_definition(),
+            SetType::Scalar(t) => t.coordinate(),
+            SetType::Enum(t) => t.coordinate(),
+            SetType::Object(t) => t.coordinate(),
+            SetType::Interface(t) => t.coordinate(),
+            SetType::Union(t) => t.coordinate(),
+            SetType::InputObject(t) => t.coordinate(),
         }
     }
 
-    fn remove_definition_item(&mut self) {
+    fn exclude_coordinate(&mut self) {
         match self {
-            SetType::Scalar(t) => t.remove_definition_item(),
-            SetType::Enum(t) => t.remove_definition_item(),
-            SetType::Object(t) => t.remove_definition_item(),
-            SetType::Interface(t) => t.remove_definition_item(),
-            SetType::Union(t) => t.remove_definition_item(),
-            SetType::InputObject(t) => t.remove_definition_item(),
+            SetType::Scalar(t) => t.exclude_coordinate(),
+            SetType::Enum(t) => t.exclude_coordinate(),
+            SetType::Object(t) => t.exclude_coordinate(),
+            SetType::Interface(t) => t.exclude_coordinate(),
+            SetType::Union(t) => t.exclude_coordinate(),
+            SetType::InputObject(t) => t.exclude_coordinate(),
         }
     }
 }
@@ -574,17 +571,6 @@ impl SetType {
             SetType::Object(obj) => Some(obj.field_definition_or_inserted(field_id, schema)),
             SetType::Interface(iface) => Some(iface.field_definition_or_inserted(field_id, schema)),
             _ => None,
-        }
-    }
-
-    pub fn definition_item(&self) -> Option<&SchemaDefinitionItem> {
-        match self {
-            SetType::Scalar(t) => t.definition.as_ref(),
-            SetType::Enum(t) => t.definition.as_ref(),
-            SetType::Object(t) => t.definition.as_ref(),
-            SetType::Interface(t) => t.definition.as_ref(),
-            SetType::Union(t) => t.definition.as_ref(),
-            SetType::InputObject(t) => t.definition.as_ref(),
         }
     }
 }
@@ -626,7 +612,9 @@ impl CanHaveDirectives for SetType {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct SetRootSchema {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    // Root schema does NOT have a schema coordinate, but CAN use `extend` to add directives/root types.
+    pub is_extend: bool,
     pub directives: Vec<SetDirectiveValue>,
     pub query_type: Option<StringKey>,
     pub mutation_type: Option<StringKey>,
@@ -650,7 +638,8 @@ impl_traits!(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetScalar {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: ScalarName,
     pub directives: Vec<SetDirectiveValue>,
 }
@@ -658,13 +647,15 @@ impl_traits!(
     SetScalar,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetObject {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: ObjectName,
     pub interfaces: StringKeyIndexMap<SetMemberType>,
     pub directives: Vec<SetDirectiveValue>,
@@ -676,13 +667,15 @@ impl_traits!(
     impl_has_interfaces,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
 impl SetObject {
     pub fn default(name: StringKey) -> Self {
         Self {
-            definition: Some(SchemaDefinitionItem::default(name)),
+            definition: SchemaDefinitionItem::default(),
+            coordinate: None,
             name: ObjectName(name),
             interfaces: StringKeyIndexMap::default(),
             directives: Vec::new(),
@@ -693,7 +686,8 @@ impl SetObject {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetInterface {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: InterfaceName,
     pub interfaces: StringKeyIndexMap<SetMemberType>,
     pub directives: Vec<SetDirectiveValue>,
@@ -706,13 +700,15 @@ impl_traits!(
     impl_has_interfaces,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetInputObject {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: InputObjectName,
     pub directives: Vec<SetDirectiveValue>,
     pub fields: StringKeyIndexMap<SetArgument>,
@@ -726,6 +722,7 @@ impl_traits!(
     SetInputObject,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
@@ -740,7 +737,8 @@ impl HasArguments for SetInputObject {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetEnum {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: EnumName,
     pub directives: Vec<SetDirectiveValue>,
     // If used as a const input value, the explicit values used.
@@ -753,13 +751,15 @@ impl_traits!(
     SetEnum,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetUnion {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: UnionName,
     pub directives: Vec<SetDirectiveValue>,
     pub members: StringKeyIndexMap<SetMemberType>,
@@ -769,6 +769,7 @@ impl_traits!(
     SetUnion,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
@@ -786,7 +787,8 @@ impl_lookup!(FieldName);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetField {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: FieldName,
     pub arguments: StringKeyIndexMap<SetArgument>,
     pub type_: OutputTypeReference<StringKey>,
@@ -797,6 +799,7 @@ impl_traits!(
     impl_has_arguments,
     impl_string_key_named_with_location,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
@@ -816,7 +819,8 @@ impl_traits!(SetMemberType, impl_string_key_named_raw);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetDirective {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: DirectiveName,
     pub arguments: StringKeyIndexMap<SetArgument>,
     pub repeatable: bool,
@@ -827,13 +831,15 @@ impl_traits!(
     SetDirective,
     impl_has_arguments,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_string_key_named_with_location,
     impl_has_description
 );
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetArgument {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub name: StringKey,
     pub type_: TypeReference<StringKey>,
     pub default_value: Option<ConstantValue>,
@@ -842,6 +848,7 @@ pub struct SetArgument {
 impl_traits!(
     SetArgument,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_string_key_named_raw,
     impl_can_have_directives,
     impl_has_description
@@ -849,7 +856,7 @@ impl_traits!(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetDirectiveValue {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
     pub name: DirectiveName,
     pub arguments: Vec<SetArgumentValue>,
 }
@@ -880,13 +887,12 @@ impl SetDirectiveValue {
 
     pub fn from_schema_value(dv: &DirectiveValue, is_client_definition: bool) -> Self {
         Self {
-            definition: Some(SchemaDefinitionItem {
-                name: dv.name.0,
+            definition: SchemaDefinitionItem {
                 locations: Vec::new(),
                 is_client_definition,
                 description: None,
                 hack_source: None,
-            }),
+            },
             name: dv.name,
             arguments: dv
                 .arguments
@@ -902,7 +908,7 @@ impl SetDirectiveValue {
 /// This represents the `arg: "some_value"` part.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetArgumentValue {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
     pub name: common::ArgumentName,
     pub value: ConstantValue,
 }
@@ -926,13 +932,12 @@ impl SetArgumentValue {
 
     pub fn from_schema_value(av: &ArgumentValue, is_client_definition: bool) -> Self {
         Self {
-            definition: Some(SchemaDefinitionItem {
-                name: av.name.0,
+            definition: SchemaDefinitionItem {
                 locations: Vec::new(),
                 is_client_definition,
                 description: None,
                 hack_source: None,
-            }),
+            },
             name: av.name,
             value: av.value.clone(),
         }
@@ -941,7 +946,8 @@ impl SetArgumentValue {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SetEnumValue {
-    pub definition: Option<SchemaDefinitionItem>,
+    pub definition: SchemaDefinitionItem,
+    pub coordinate: Option<SchemaCoordinate>,
     pub value: StringKey,
     pub directives: Vec<SetDirectiveValue>,
     pub description: Option<StringKey>,
@@ -949,6 +955,7 @@ pub struct SetEnumValue {
 impl_traits!(
     SetEnumValue,
     impl_has_definition_item,
+    impl_has_coordinate,
     impl_can_have_directives,
     impl_has_description
 );
@@ -973,9 +980,17 @@ impl SetEnumValue {
         }
     }
 
-    pub fn from_schema_value(ev: &EnumValue, is_client_definition: bool) -> Self {
+    pub fn from_schema_value(
+        ev: &EnumValue,
+        parent_name: StringKey,
+        is_client_definition: bool,
+    ) -> Self {
         Self {
-            definition: Some(SchemaDefinitionItem::default(ev.value)),
+            definition: SchemaDefinitionItem::default(),
+            coordinate: Some(SchemaCoordinate::Member {
+                parent_name,
+                member_name: ev.value,
+            }),
             value: ev.value,
             directives: ev
                 .directives
@@ -992,18 +1007,20 @@ pub trait StringKeyNamed {
 }
 
 pub trait HasDefinitionItem {
-    fn definition_item(&self) -> Option<&SchemaDefinitionItem>;
+    fn definition_item(&self) -> &SchemaDefinitionItem;
 
     fn is_client_definition(&self) -> bool {
-        self.definition_item()
-            .as_ref()
-            .is_none_or(|definition| definition.is_client_definition)
+        self.definition_item().is_client_definition
     }
+}
+
+pub trait HasCoordinate {
+    fn coordinate(&self) -> Option<&SchemaCoordinate>;
 
     /// Make this definition represent an undefined type.
     /// Usually represented by `extend ...` in the SDL, but can also represent
     /// any pass-through schema coordinate that isn't explicitly defined in the SchemaSet.
-    fn remove_definition_item(&mut self);
+    fn exclude_coordinate(&mut self);
 }
 
 pub trait CanHaveDirectives {

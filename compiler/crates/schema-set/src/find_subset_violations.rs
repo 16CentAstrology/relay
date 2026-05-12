@@ -299,7 +299,7 @@ fn walk_field_violations(
                 });
             }
             Some(base_field) => {
-                if rem_field.definition.is_some() {
+                if rem_field.coordinate.is_some() {
                     let base_type = format_output_type_ref(&base_field.type_);
                     let subset_type = format_output_type_ref(&rem_field.type_);
                     violations.push(SubsetViolation {
@@ -402,7 +402,7 @@ fn walk_arg_violations(
                     subset_locations: Vec::new(),
                 });
             }
-        } else if in_subset && in_base && rem_arg.definition.is_some() {
+        } else if in_subset && in_base && rem_arg.coordinate.is_some() {
             let base_arg = base_args.get(arg_name).expect("already checked in_base");
             let base_type = format_type_ref(&base_arg.type_);
             let subset_type = format_type_ref(&rem_arg.type_);
@@ -466,7 +466,7 @@ fn walk_input_field_violations(
                     subset_locations: Vec::new(),
                 });
             }
-        } else if in_subset && in_base && rem_field.definition.is_some() {
+        } else if in_subset && in_base && rem_field.coordinate.is_some() {
             let base_field = base_fields
                 .get(field_name)
                 .expect("already checked in_base");

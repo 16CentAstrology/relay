@@ -169,7 +169,7 @@ impl ToSDLDefinition<SchemaDefinition> for SetRootSchema {
 impl ToTypeSystemDefinition for SetRootSchema {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let root_definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.is_extend {
             TypeSystemDefinition::SchemaExtension(SchemaExtension {
                 directives: root_definition.directives,
                 operation_types: if root_definition.operation_types.items.is_empty() {
@@ -231,7 +231,7 @@ impl ToSDLDefinition<ScalarTypeDefinition> for SetScalar {
 impl ToTypeSystemDefinition for SetScalar {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.coordinate.is_none() {
             // `*Extension` syntax nodes do not carry a description.
             TypeSystemDefinition::ScalarTypeExtension(ScalarTypeExtension {
                 name: definition.name,
@@ -281,7 +281,7 @@ impl ToSDLDefinition<EnumTypeDefinition> for SetEnum {
 impl ToTypeSystemDefinition for SetEnum {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.coordinate.is_none() {
             TypeSystemDefinition::EnumTypeExtension(EnumTypeExtension {
                 name: definition.name,
                 directives: definition.directives,
@@ -310,7 +310,7 @@ impl ToSDLDefinition<ObjectTypeDefinition> for SetObject {
 impl ToTypeSystemDefinition for SetObject {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.coordinate.is_none() {
             TypeSystemDefinition::ObjectTypeExtension(ObjectTypeExtension {
                 name: definition.name,
                 interfaces: definition.interfaces,
@@ -340,7 +340,7 @@ impl ToSDLDefinition<InterfaceTypeDefinition> for SetInterface {
 impl ToTypeSystemDefinition for SetInterface {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.coordinate.is_none() {
             TypeSystemDefinition::InterfaceTypeExtension(InterfaceTypeExtension {
                 name: definition.name,
                 interfaces: definition.interfaces,
@@ -369,7 +369,7 @@ impl ToSDLDefinition<UnionTypeDefinition> for SetUnion {
 impl ToTypeSystemDefinition for SetUnion {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.coordinate.is_none() {
             TypeSystemDefinition::UnionTypeExtension(UnionTypeExtension {
                 name: definition.name,
                 directives: definition.directives,
@@ -413,7 +413,7 @@ impl ToSDLDefinition<InputObjectTypeDefinition> for SetInputObject {
 impl ToTypeSystemDefinition for SetInputObject {
     fn to_type_system_definition(&self) -> TypeSystemDefinition {
         let definition = self.to_sdl_definition();
-        if self.definition.is_none() {
+        if self.coordinate.is_none() {
             TypeSystemDefinition::InputObjectTypeExtension(InputObjectTypeExtension {
                 name: definition.name,
                 directives: definition.directives,
@@ -687,14 +687,11 @@ fn build_directives(directives: &[SetDirectiveValue]) -> Vec<ConstantDirective> 
     built
 }
 
-fn build_description(definition_item: &Option<SchemaDefinitionItem>) -> Option<StringNode> {
-    definition_item
-        .as_ref()
-        .and_then(|d| d.description)
-        .map(|value| StringNode {
-            token: build_token(TokenKind::BlockStringLiteral),
-            value,
-        })
+fn build_description(definition_item: &SchemaDefinitionItem) -> Option<StringNode> {
+    definition_item.description.map(|value| StringNode {
+        token: build_token(TokenKind::BlockStringLiteral),
+        value,
+    })
 }
 
 /// NOTE: we do NOT preserve the original order, instead sorting by member name
@@ -726,14 +723,11 @@ fn build_fields(fields: &StringKeyMap<SetField>) -> Option<List<FieldDefinition>
     })
 }
 
-fn build_hack_source(definition_item: &Option<SchemaDefinitionItem>) -> Option<StringNode> {
-    definition_item
-        .as_ref()
-        .and_then(|d| d.hack_source)
-        .map(|value| StringNode {
-            token: build_token(TokenKind::StringLiteral),
-            value,
-        })
+fn build_hack_source(definition_item: &SchemaDefinitionItem) -> Option<StringNode> {
+    definition_item.hack_source.map(|value| StringNode {
+        token: build_token(TokenKind::StringLiteral),
+        value,
+    })
 }
 
 fn build_token(kind: TokenKind) -> Token {

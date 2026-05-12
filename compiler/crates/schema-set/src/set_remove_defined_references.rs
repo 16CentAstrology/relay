@@ -22,9 +22,11 @@ use intern::string_key::StringKeySet;
 use lazy_static::lazy_static;
 
 use crate::SchemaSet;
+use crate::SetArgument;
 use crate::SetDirective;
 use crate::SetEnum;
 use crate::SetEnumValue;
+use crate::SetField;
 use crate::SetInputObject;
 use crate::SetInterface;
 use crate::SetMemberType;
@@ -32,7 +34,7 @@ use crate::SetObject;
 use crate::SetScalar;
 use crate::SetType;
 use crate::SetUnion;
-use crate::schema_set::HasDefinitionItem;
+use crate::schema_set::HasCoordinate;
 use crate::schema_set::SetDirectiveValue;
 use crate::schema_set::SetRootSchema;
 use crate::schema_set::StringKeyNamed;
@@ -61,9 +63,10 @@ impl SchemaSet {
             .types
             .iter()
             .filter_map(|(name, t)| {
-                // If using `extend T` then the underlying base type is NOT a client definition and should NOT be removed.
-                // Only the fields under this definition should be removed.
-                if t.is_client_definition() {
+                // If using `extend T` then the underlying base type is NOT a top-level
+                // definition and should NOT be removed: only the fields under this
+                // definition should be removed.
+                if t.coordinate().is_none() {
                     None
                 } else {
                     Some(*name)
@@ -74,7 +77,7 @@ impl SchemaSet {
             .types
             .iter()
             .filter_map(|(name, t)| {
-                if !t.is_client_definition() && matches!(t, SetType::Interface(_)) {
+                if t.coordinate().is_some() && matches!(t, SetType::Interface(_)) {
                     Some(*name)
                 } else {
                     None
@@ -82,12 +85,12 @@ impl SchemaSet {
             })
             .collect();
 
-        // Collect fields to exclude from client-definition (extend type/interface) types.
+        // Collect fields to exclude from extend-only (no top-level coordinate) types.
         // These types are NOT fully removed, but their fields should be stripped
         // from the base schema.
         let mut excluded_fields_by_type: StringKeyMap<StringKeySet> = StringKeyMap::default();
         for (name, t) in &to_exclude.types {
-            if !t.is_client_definition() {
+            if t.coordinate().is_some() {
                 continue;
             }
             let field_names: StringKeySet = match t {
@@ -216,6 +219,7 @@ fn remove_directive_usages_from_root_schema(
 ) -> SetRootSchema {
     SetRootSchema {
         definition: root_schema.definition.clone(),
+        is_extend: root_schema.is_extend,
         directives: remove_directive_usages(&root_schema.directives, excluded_directive_names),
         query_type: root_schema.query_type,
         mutation_type: root_schema.mutation_type,
@@ -229,6 +233,7 @@ fn remove_directive_usages_from_directive(
 ) -> SetDirective {
     SetDirective {
         definition: directive.definition.clone(),
+        coordinate: directive.coordinate.clone(),
         locations: directive.locations.clone(),
         arguments: directive
             .arguments
@@ -236,8 +241,9 @@ fn remove_directive_usages_from_directive(
             .map(|(name, arg)| {
                 (
                     *name,
-                    crate::SetArgument {
+                    SetArgument {
                         definition: arg.definition.clone(),
+                        coordinate: arg.coordinate.clone(),
                         directives: remove_directive_usages(
                             &arg.directives,
                             excluded_directive_names,
@@ -300,6 +306,7 @@ fn remove_references_from_scalar(
 ) -> SetScalar {
     SetScalar {
         definition: scalar.definition.clone(),
+        coordinate: scalar.coordinate.clone(),
         directives: remove_directive_usages(&scalar.directives, excluded_directive_names),
         name: scalar.name,
     }
@@ -311,6 +318,7 @@ fn remove_references_from_enum(
 ) -> SetEnum {
     SetEnum {
         definition: enum_.definition.clone(),
+        coordinate: enum_.coordinate.clone(),
         directives: remove_directive_usages(&enum_.directives, excluded_directive_names),
         values: enum_
             .values
@@ -319,7 +327,8 @@ fn remove_references_from_enum(
                 (
                     *name,
                     SetEnumValue {
-                        definition: None,
+                        definition: value.definition.clone(),
+                        coordinate: value.coordinate.clone(),
                         value: value.value,
                         directives: remove_set_directive_usages(
                             &value.directives,
@@ -346,11 +355,11 @@ fn remove_interfaces_from_implements(
 }
 
 fn remove_references_from_fields(
-    fields: &StringKeyMap<crate::SetField>,
+    fields: &StringKeyMap<SetField>,
     excluded_directive_names: &StringKeySet,
     excluded_field_names: &StringKeySet,
     excluded_type_names: &StringKeySet,
-) -> StringKeyMap<crate::SetField> {
+) -> StringKeyMap<SetField> {
     fields
         .iter()
         .filter(|(name, field)| {
@@ -367,16 +376,18 @@ fn remove_references_from_fields(
         .map(|(name, field)| {
             (
                 *name,
-                crate::SetField {
+                SetField {
                     definition: field.definition.clone(),
+                    coordinate: field.coordinate.clone(),
                     arguments: field
                         .arguments
                         .iter()
                         .map(|(arg_name, arg)| {
                             (
                                 *arg_name,
-                                crate::SetArgument {
+                                SetArgument {
                                     definition: arg.definition.clone(),
+                                    coordinate: arg.coordinate.clone(),
                                     directives: remove_directive_usages(
                                         &arg.directives,
                                         excluded_directive_names,
@@ -409,6 +420,7 @@ fn remove_references_from_object(
 ) -> SetObject {
     SetObject {
         definition: object.definition.clone(),
+        coordinate: object.coordinate.clone(),
         interfaces: remove_interfaces_from_implements(&object.interfaces, excluded_interface_names),
         directives: remove_directive_usages(&object.directives, excluded_directive_names),
         fields: remove_references_from_fields(
@@ -430,6 +442,7 @@ fn remove_references_from_interface(
 ) -> SetInterface {
     SetInterface {
         definition: interface.definition.clone(),
+        coordinate: interface.coordinate.clone(),
         interfaces: remove_interfaces_from_implements(
             &interface.interfaces,
             excluded_interface_names,
@@ -452,6 +465,7 @@ fn remove_references_from_union(
 ) -> SetUnion {
     SetUnion {
         definition: union_.definition.clone(),
+        coordinate: union_.coordinate.clone(),
         members: union_
             .members
             .iter()
@@ -469,6 +483,7 @@ fn remove_references_from_input_object(
 ) -> SetInputObject {
     SetInputObject {
         definition: input_object.definition.clone(),
+        coordinate: input_object.coordinate.clone(),
         directives: remove_directive_usages(&input_object.directives, excluded_directive_names),
         fields: input_object
             .fields
@@ -476,8 +491,9 @@ fn remove_references_from_input_object(
             .map(|(name, arg)| {
                 (
                     *name,
-                    crate::SetArgument {
+                    SetArgument {
                         definition: arg.definition.clone(),
+                        coordinate: arg.coordinate.clone(),
                         directives: remove_directive_usages(
                             &arg.directives,
                             excluded_directive_names,

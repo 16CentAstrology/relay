@@ -38,16 +38,17 @@ use graphql_syntax::ScalarTypeDefinition;
 use graphql_syntax::SchemaDefinition;
 use graphql_syntax::TypeAnnotation;
 use graphql_syntax::UnionTypeDefinition;
-use intern::string_key::Intern;
 use intern::string_key::StringKey;
 use intern::string_key::StringKeyIndexMap;
 use intern::string_key::StringKeyMap;
 use schema::TypeReference;
+use schema_coordinates::SchemaCoordinate;
 
 use crate::OutputNonNull;
 use crate::OutputTypeReference;
 use crate::SEMANTIC_NON_NULL;
 use crate::SEMANTIC_NON_NULL_LEVELS_ARG;
+use crate::build_child_coordinate;
 use crate::schema_set::FieldName;
 use crate::schema_set::SchemaDefinitionItem;
 use crate::schema_set::SetArgument;
@@ -120,6 +121,7 @@ pub fn merge_ext_into<
     used_map: &mut StringKeyMap<SetDefinition>,
     type_ext: &TypeExt,
     source: SourceLocationKey,
+    is_client_definition: bool,
 ) -> DiagnosticsResult<()>
 where
     TypeExt::DefinitionType: ToSetDefinition<SetDefinition>,
@@ -133,12 +135,12 @@ where
         // an extension field.
         //
         // `is_extends = true` ensures the resulting `SetType` has
-        // `definition: None`, so `Merges::merge` correctly treats this entry
+        // `coordinate: None`, so `Merges::merge` correctly treats this entry
         // as extension-only when there's no pre-existing base entry, and so
         // `to_sdl_definition` round-trips it back as `extend X { ... }`
         // rather than `X { ... }` (which would conflict with the base on
         // re-import via `SDLSchema::build`).
-        .to_set_definition(source, true, true);
+        .to_set_definition(source, is_client_definition, true);
     let name = set_type.string_key_name();
     if let Some(exists) = used_map.get_mut(&name) {
         exists.merge(set_type)?;
@@ -153,16 +155,16 @@ impl ToSetDefinition<SetRootSchema> for SchemaDefinition {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
-        is_extends: bool,
+        is_extend: bool,
     ) -> SetRootSchema {
         let mut set_root_schema = SetRootSchema {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: "schema".intern(),
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
-            }),
+            },
+            is_extend,
             directives: build_directive_values(&self.directives, source, is_client_definition),
             ..Default::default()
         };
@@ -192,6 +194,9 @@ impl ToSetDefinition<SetType> for EnumTypeDefinition {
         is_extends: bool,
     ) -> SetType {
         let directives = build_directive_values(&self.directives, source, is_client_definition);
+        let base_coordinate = SchemaCoordinate::Type {
+            name: self.name.value,
+        };
         let values = self.values.as_ref().map_or(BTreeMap::default(), |v| {
             v.items
                 .iter()
@@ -199,13 +204,16 @@ impl ToSetDefinition<SetType> for EnumTypeDefinition {
                     (
                         value.name.value,
                         SetEnumValue {
-                            definition: Some(SchemaDefinitionItem {
-                                name: value.name.value,
+                            definition: SchemaDefinitionItem {
                                 locations: vec![Location::new(source, value.span)],
                                 is_client_definition,
                                 description: value.description.as_ref().map(|d| d.value),
                                 hack_source: None,
-                            }),
+                            },
+                            coordinate: build_child_coordinate(
+                                Some(&base_coordinate),
+                                value.name.value,
+                            ),
                             value: value.name.value,
                             directives: build_directive_values(
                                 &value.directives,
@@ -219,13 +227,13 @@ impl ToSetDefinition<SetType> for EnumTypeDefinition {
                 .collect()
         });
         SetType::Enum(SetEnum {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
-            }),
+            },
+            coordinate: (!is_extends).then_some(base_coordinate),
             name: EnumName(self.name.value),
             values,
             directives,
@@ -240,16 +248,27 @@ impl ToSetDefinition<SetType> for InterfaceTypeDefinition {
         is_client_definition: bool,
         is_extends: bool,
     ) -> SetType {
+        let base_coordinate = SchemaCoordinate::Type {
+            name: self.name.value,
+        };
+        let fields = build_fields(
+            self.fields.as_ref(),
+            &base_coordinate,
+            source,
+            is_client_definition,
+        );
         SetType::Interface(SetInterface {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
+            },
+            coordinate: (!is_extends).then_some(SchemaCoordinate::Type {
+                name: self.name.value,
             }),
             name: InterfaceName(self.name.value),
-            fields: build_fields(self.fields.as_ref(), source, is_client_definition),
+            fields,
             interfaces: build_members(&self.interfaces, is_client_definition),
             directives: build_directive_values(&self.directives, source, is_client_definition),
         })
@@ -263,16 +282,25 @@ impl ToSetDefinition<SetType> for ObjectTypeDefinition {
         is_client_definition: bool,
         is_extends: bool,
     ) -> SetType {
+        let base_coordinate = SchemaCoordinate::Type {
+            name: self.name.value,
+        };
+        let fields = build_fields(
+            self.fields.as_ref(),
+            &base_coordinate,
+            source,
+            is_client_definition,
+        );
         SetType::Object(SetObject {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
-            }),
+            },
+            coordinate: (!is_extends).then_some(base_coordinate),
             name: ObjectName(self.name.value),
-            fields: build_fields(self.fields.as_ref(), source, is_client_definition),
+            fields,
             interfaces: build_members(&self.interfaces, is_client_definition),
             directives: build_directive_values(&self.directives, source, is_client_definition),
         })
@@ -287,12 +315,14 @@ impl ToSetDefinition<SetType> for UnionTypeDefinition {
         is_extends: bool,
     ) -> SetType {
         SetType::Union(SetUnion {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
+            },
+            coordinate: (!is_extends).then_some(SchemaCoordinate::Type {
+                name: self.name.value,
             }),
             members: build_members(&self.members, is_client_definition),
             name: UnionName(self.name.value),
@@ -308,15 +338,25 @@ impl ToSetDefinition<SetType> for InputObjectTypeDefinition {
         is_client_definition: bool,
         is_extends: bool,
     ) -> SetType {
+        let base_coordinate = SchemaCoordinate::Type {
+            name: self.name.value,
+        };
+        let fields = build_argument_values(
+            self.fields.as_ref(),
+            Some(&base_coordinate),
+            source,
+            is_client_definition,
+        );
+
         SetType::InputObject(SetInputObject {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
-            }),
-            fields: build_argument_values(self.fields.as_ref(), source, is_client_definition),
+            },
+            coordinate: (!is_extends).then_some(base_coordinate),
+            fields,
             name: InputObjectName(self.name.value),
             directives: build_directive_values(
                 self.directives.as_ref(),
@@ -336,12 +376,14 @@ impl ToSetDefinition<SetType> for ScalarTypeDefinition {
         is_extends: bool,
     ) -> SetType {
         SetType::Scalar(SetScalar {
-            definition: (!is_extends).then(|| SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
                 hack_source: None,
+            },
+            coordinate: (!is_extends).then_some(SchemaCoordinate::Type {
+                name: self.name.value,
             }),
             name: ScalarName(self.name.value),
             directives: build_directive_values(
@@ -358,76 +400,59 @@ impl ToSetDefinition<SetDirective> for DirectiveDefinition {
         &self,
         source: SourceLocationKey,
         is_client_definition: bool,
-        // GraphQL has no `extend directive`; this is unused but required by
-        // the trait signature.
-        _is_extends: bool,
+        // SDL will soon get an `extend directive`: https://github.com/graphql/graphql-spec/pull/1206
+        is_extends: bool,
     ) -> SetDirective {
+        let base_coordinate = SchemaCoordinate::Directive {
+            name: self.name.value,
+        };
+        let arguments = build_argument_values(
+            self.arguments.as_ref(),
+            Some(&base_coordinate),
+            source,
+            is_client_definition,
+        );
         SetDirective {
-            definition: Some(SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.name.span)],
                 is_client_definition,
                 description: self.description.as_ref().map(|d| d.value),
-                hack_source: self.hack_source.as_ref().map(|h| h.value),
-            }),
+                hack_source: None,
+            },
+            coordinate: (!is_extends).then_some(base_coordinate),
             name: DirectiveName(self.name.value),
-            arguments: build_argument_values(self.arguments.as_ref(), source, is_client_definition),
+            arguments,
             locations: self.locations.clone(),
             repeatable: self.repeatable,
         }
     }
 }
 
-impl ToSetDefinition<SetField> for FieldDefinition {
-    fn to_set_definition(
-        &self,
-        source: SourceLocationKey,
-        is_client_definition: bool,
-        // Field-level definitions always carry their own `definition` field;
-        // top-level extension semantics don't apply.
-        _is_extends: bool,
-    ) -> SetField {
-        SetField {
-            definition: Some(SchemaDefinitionItem {
-                name: self.name.value,
-                locations: vec![Location::new(source, self.name.span)],
-                is_client_definition,
-                description: self.description.as_ref().map(|d| d.value),
-                hack_source: self.hack_source.as_ref().map(|h| h.value),
-            }),
-            name: FieldName(self.name.value),
-            arguments: build_argument_values(self.arguments.as_ref(), source, is_client_definition),
-            type_: build_output_type_reference(&self.type_, &self.directives),
-            directives: build_directive_values(&self.directives, source, is_client_definition),
-        }
-    }
-}
-
-impl ToSetDefinition<SetArgument> for InputValueDefinition {
-    fn to_set_definition(
-        &self,
-        source: SourceLocationKey,
-        is_client_definition: bool,
-        // Input-value definitions always carry their own `definition` field;
-        // top-level extension semantics don't apply.
-        _is_extends: bool,
-    ) -> SetArgument {
-        SetArgument {
-            definition: Some(SchemaDefinitionItem {
-                name: self.name.value,
-                locations: vec![Location::new(source, self.name.span)],
-                is_client_definition,
-                description: None,
-                hack_source: None,
-            }),
-            name: self.name.value,
-            type_: build_type_reference(&self.type_),
-            default_value: self
-                .default_value
-                .as_ref()
-                .map(|default_value| default_value.value.clone()),
-            directives: build_directive_values(&self.directives, source, is_client_definition),
-        }
+fn field_to_set_definition(
+    field: &FieldDefinition,
+    parent_coordinate: Option<&SchemaCoordinate>,
+    source: SourceLocationKey,
+    is_client_definition: bool,
+) -> SetField {
+    let field_coordinate = build_child_coordinate(parent_coordinate, field.name.value);
+    let arguments = build_argument_values(
+        field.arguments.as_ref(),
+        field_coordinate.as_ref(),
+        source,
+        is_client_definition,
+    );
+    SetField {
+        definition: SchemaDefinitionItem {
+            locations: vec![Location::new(source, field.name.span)],
+            is_client_definition,
+            description: field.description.as_ref().map(|d| d.value),
+            hack_source: field.hack_source.as_ref().map(|h| h.value),
+        },
+        coordinate: field_coordinate,
+        name: FieldName(field.name.value),
+        arguments,
+        type_: build_output_type_reference(&field.type_, &field.directives),
+        directives: build_directive_values(&field.directives, source, is_client_definition),
     }
 }
 
@@ -449,13 +474,12 @@ impl ToSetDefinition<SetDirectiveValue> for ConstantDirective {
             Vec::new()
         };
         SetDirectiveValue {
-            definition: Some(SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.span)],
                 is_client_definition,
                 description: None,
                 hack_source: None,
-            }),
+            },
             name: DirectiveName(self.name.value),
             arguments,
         }
@@ -471,13 +495,12 @@ impl ToSetDefinition<SetArgumentValue> for ConstantArgument {
         _is_extends: bool,
     ) -> SetArgumentValue {
         SetArgumentValue {
-            definition: Some(SchemaDefinitionItem {
-                name: self.name.value,
+            definition: SchemaDefinitionItem {
                 locations: vec![Location::new(source, self.span)],
                 is_client_definition,
                 description: None,
                 hack_source: None,
-            }),
+            },
             name: ArgumentName(self.name.value),
             value: self.value.clone(),
         }
@@ -514,6 +537,7 @@ fn build_members(members: &[Identifier], is_extension: bool) -> StringKeyIndexMa
 
 fn build_fields(
     fields: Option<&List<FieldDefinition>>,
+    parent_coordinate: &SchemaCoordinate,
     source: SourceLocationKey,
     is_client_definition: bool,
 ) -> StringKeyMap<SetField> {
@@ -524,7 +548,12 @@ fn build_fields(
             let name = field.name.value;
             (
                 name,
-                field.to_set_definition(source, is_client_definition, false),
+                field_to_set_definition(
+                    field,
+                    Some(parent_coordinate),
+                    source,
+                    is_client_definition,
+                ),
             )
         })
         .collect()
@@ -532,6 +561,7 @@ fn build_fields(
 
 fn build_argument_values(
     arguments: Option<&List<InputValueDefinition>>,
+    parent_coordinate: Option<&SchemaCoordinate>,
     source: SourceLocationKey,
     is_client_definition: bool,
 ) -> StringKeyIndexMap<SetArgument> {
@@ -542,13 +572,13 @@ fn build_argument_values(
                 (
                     arg.name.value,
                     SetArgument {
-                        definition: Some(SchemaDefinitionItem {
-                            name: arg.name.value,
+                        definition: SchemaDefinitionItem {
                             locations: vec![Location::new(source, arg.name.span)],
                             is_client_definition,
                             description: arg.description.as_ref().map(|d| d.value),
                             hack_source: None,
-                        }),
+                        },
+                        coordinate: build_child_coordinate(parent_coordinate, arg.name.value),
                         name: arg.name.value,
                         type_: build_type_reference(&arg.type_),
                         default_value: arg
