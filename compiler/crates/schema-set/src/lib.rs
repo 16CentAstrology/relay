@@ -41,6 +41,8 @@ pub use crate::from_schema::SchemaInsertInterface;
 pub use crate::from_schema::SetEmptyClone;
 pub use crate::from_schema::convert_schema_output_type_reference;
 pub use crate::ir_collector::UsedSchemaIRCollector;
+pub use crate::merge_sdl_document::ToSetDefinition;
+pub use crate::merge_sdl_document::set_type_from_definition;
 pub use crate::partition_base_extensions::partition_schema_set_base_and_extensions;
 pub use crate::schema_set::CanHaveDirectives;
 pub use crate::schema_set::FieldName;

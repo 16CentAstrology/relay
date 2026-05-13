@@ -150,6 +150,54 @@ where
     Ok(())
 }
 
+pub fn set_type_from_definition(
+    def: &graphql_syntax::TypeSystemDefinition,
+    source: SourceLocationKey,
+    is_client_definition: bool,
+) -> Option<SetType> {
+    use graphql_syntax::TypeSystemDefinition::*;
+    Some(match def {
+        ObjectTypeDefinition(d) => d.to_set_definition(source, is_client_definition, false),
+        ObjectTypeExtension(d) => {
+            d.clone()
+                .into_definition()
+                .to_set_definition(source, is_client_definition, true)
+        }
+        InterfaceTypeDefinition(d) => d.to_set_definition(source, is_client_definition, false),
+        InterfaceTypeExtension(d) => {
+            d.clone()
+                .into_definition()
+                .to_set_definition(source, is_client_definition, true)
+        }
+        EnumTypeDefinition(d) => d.to_set_definition(source, is_client_definition, false),
+        EnumTypeExtension(d) => {
+            d.clone()
+                .into_definition()
+                .to_set_definition(source, is_client_definition, true)
+        }
+        UnionTypeDefinition(d) => d.to_set_definition(source, is_client_definition, false),
+        UnionTypeExtension(d) => {
+            d.clone()
+                .into_definition()
+                .to_set_definition(source, is_client_definition, true)
+        }
+        InputObjectTypeDefinition(d) => d.to_set_definition(source, is_client_definition, false),
+        InputObjectTypeExtension(d) => {
+            d.clone()
+                .into_definition()
+                .to_set_definition(source, is_client_definition, true)
+        }
+        ScalarTypeDefinition(d) => d.to_set_definition(source, is_client_definition, false),
+        ScalarTypeExtension(d) => {
+            d.clone()
+                .into_definition()
+                .to_set_definition(source, is_client_definition, true)
+        }
+        // No corresponding `SetType` for these
+        SchemaDefinition(_) | SchemaExtension(_) | DirectiveDefinition(_) => return None,
+    })
+}
+
 impl ToSetDefinition<SetRootSchema> for SchemaDefinition {
     fn to_set_definition(
         &self,
