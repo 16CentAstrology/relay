@@ -11,17 +11,32 @@
 
 'use strict';
 
-import type {IEnvironment, Query, Variables} from 'relay-runtime';
+import type {
+  Fragment,
+  FragmentType,
+  IEnvironment,
+  Query,
+  Variables,
+} from 'relay-runtime';
 
 const serverFetchQueryImpl = require('./relay-hooks/rsc/serverFetchQuery');
+const serverReadFragmentImpl = require('./relay-hooks/rsc/serverReadFragment');
 const invariant = require('invariant');
 const React = require('react');
+
+type HasSpread<TFragmentType> = {+$fragmentSpreads: TFragmentType, ...};
 
 export type ServerEnvironment = {
   +getEnvironment: () => IEnvironment,
   +serverFetchQuery: <TVariables extends Variables, TData>(
     query: Query<TVariables, TData>,
     variables: TVariables,
+  ) => Promise<TData>,
+  +serverReadFragment: <TFragmentType extends FragmentType, TData>(
+    fragment: Fragment<TFragmentType, TData>,
+    fragmentRef:
+      | HasSpread<TFragmentType>
+      | ReadonlyArray<HasSpread<TFragmentType>>,
   ) => Promise<TData>,
 };
 
@@ -40,9 +55,19 @@ function createServerEnvironment(
     return serverFetchQueryImpl(getEnvironment(), query, variables);
   }
 
+  async function serverReadFragment<TFragmentType extends FragmentType, TData>(
+    fragment: Fragment<TFragmentType, TData>,
+    fragmentRef:
+      | HasSpread<TFragmentType>
+      | ReadonlyArray<HasSpread<TFragmentType>>,
+  ): Promise<TData> {
+    return serverReadFragmentImpl(getEnvironment(), fragment, fragmentRef);
+  }
+
   return {
     getEnvironment,
     serverFetchQuery,
+    serverReadFragment,
   };
 }
 

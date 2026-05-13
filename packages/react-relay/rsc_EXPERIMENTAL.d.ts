@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import {ArrayKeyType, ArrayKeyTypeData, KeyType, KeyTypeData} from './ReactRelayTypes';
 import {GraphQLTaggedNode, IEnvironment, OperationType} from 'relay-runtime';
 
 export interface ServerEnvironment {
@@ -13,6 +14,16 @@ export interface ServerEnvironment {
         query: GraphQLTaggedNode,
         variables: T['variables'],
     ) => Promise<T['response']>;
+    readonly serverReadFragment: {
+        <TKey extends KeyType>(
+            fragment: GraphQLTaggedNode,
+            fragmentRef: TKey,
+        ): Promise<KeyTypeData<TKey>>;
+        <TKey extends ArrayKeyType>(
+            fragment: GraphQLTaggedNode,
+            fragmentRef: TKey,
+        ): Promise<ArrayKeyTypeData<TKey>>;
+    };
 }
 
 export function createServerEnvironment(
