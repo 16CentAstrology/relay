@@ -11,6 +11,7 @@
 
 'use strict';
 
+import type {PreloadedQueryRef} from './relay-hooks/rsc/serverPreloadQuery';
 import type {
   Fragment,
   FragmentType,
@@ -20,9 +21,12 @@ import type {
 } from 'relay-runtime';
 
 const serverFetchQueryImpl = require('./relay-hooks/rsc/serverFetchQuery');
+const serverPreloadQueryImpl = require('./relay-hooks/rsc/serverPreloadQuery');
 const serverReadFragmentImpl = require('./relay-hooks/rsc/serverReadFragment');
 const invariant = require('invariant');
 const React = require('react');
+
+export type {PreloadedQueryRef};
 
 type HasSpread<TFragmentType> = {+$fragmentSpreads: TFragmentType, ...};
 
@@ -32,6 +36,10 @@ export type ServerEnvironment = {
     query: Query<TVariables, TData>,
     variables: TVariables,
   ) => Promise<TData>,
+  +serverPreloadQuery: <TVariables extends Variables, TData>(
+    query: Query<TVariables, TData>,
+    variables: TVariables,
+  ) => PreloadedQueryRef<TVariables, TData>,
   +serverReadFragment: <TFragmentType extends FragmentType, TData>(
     fragment: Fragment<TFragmentType, TData>,
     fragmentRef:
@@ -55,6 +63,13 @@ function createServerEnvironment(
     return serverFetchQueryImpl(getEnvironment(), query, variables);
   }
 
+  function serverPreloadQuery<TVariables extends Variables, TData>(
+    query: Query<TVariables, TData>,
+    variables: TVariables,
+  ): PreloadedQueryRef<TVariables, TData> {
+    return serverPreloadQueryImpl(getEnvironment(), query, variables);
+  }
+
   async function serverReadFragment<TFragmentType extends FragmentType, TData>(
     fragment: Fragment<TFragmentType, TData>,
     fragmentRef:
@@ -67,6 +82,7 @@ function createServerEnvironment(
   return {
     getEnvironment,
     serverFetchQuery,
+    serverPreloadQuery,
     serverReadFragment,
   };
 }

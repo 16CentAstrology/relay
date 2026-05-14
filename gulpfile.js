@@ -87,6 +87,7 @@ const builds = [
       legacy: 'legacy.js',
       ReactRelayContext: 'ReactRelayContext.js',
       rsc_EXPERIMENTAL: 'rsc_EXPERIMENTAL.js',
+      'rsc-client_EXPERIMENTAL': 'rsc-client_EXPERIMENTAL.js',
     },
   },
   {

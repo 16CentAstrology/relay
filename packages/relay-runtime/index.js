@@ -42,6 +42,7 @@ const {
 const createFragmentSpecResolver = require('./store/createFragmentSpecResolver');
 const createRelayContext = require('./store/createRelayContext');
 const createRelayLoggingContext = require('./store/createRelayLoggingContext');
+const defaultGetDataID = require('./store/defaultGetDataID');
 const isRelayModernEnvironment = require('./store/isRelayModernEnvironment');
 const {
   isSuspenseSentinel,
@@ -329,6 +330,7 @@ const __internal = {
   OperationTracker: RelayOperationTracker,
   createRelayContext: createRelayContext,
   createRelayLoggingContext: createRelayLoggingContext,
+  defaultGetDataID: defaultGetDataID,
   getOperationVariables: RelayConcreteVariables.getOperationVariables,
   getLocalVariables: RelayConcreteVariables.getLocalVariables,
   fetchQuery: fetchQueryInternal.fetchQuery,
