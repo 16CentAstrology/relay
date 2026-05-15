@@ -100,7 +100,7 @@ pub fn build_operation_variable_definitions(
         .chain(fragment.variable_definitions.iter())
         .cloned()
         .collect();
-    result.sort_unstable_by(|l, r| l.name.item.cmp(&r.name.item));
+    result.sort_unstable_by_key(|l| l.name.item);
     result
 }
 
